@@ -1,14 +1,23 @@
-"""Day-1 public API: live stats for the landing page.
+"""Day-1 public API + Day 3 bin GET + Day 4 telemetry ingest.
 
 All numbers come from the database — nothing is hardcoded.
 Empty DB → zeros (correct empty state, not fake data).
+
+Day 4 contract (matches the ESP32 firmware in firmware/):
+    POST /api/telemetry/          REAL hardware readings (ESP32 only)
+    POST /api/telemetry/simulate/ SIMULATED demo readings (no hardware needed)
+The two paths can never mix: ingest always stores REAL, simulate always SIMULATED.
 """
+import random
+
 from django.contrib.auth import get_user_model
 from django.db.models import Sum
+from django.shortcuts import get_object_or_404
+from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
-from bins.models import SmartBin
+from bins.models import DataSource, SmartBin, Telemetry, refresh_online_flags
 from waste.models import Collection, EwasteSubmission, PickupRequest
 
 User = get_user_model()
@@ -16,6 +25,7 @@ User = get_user_model()
 
 @api_view(['GET'])
 def dashboard_stats(request):
+    refresh_online_flags()
     total_users = User.objects.count()
     total_bins = SmartBin.objects.count()
     online_bins = SmartBin.objects.filter(is_online=True).count()
@@ -68,6 +78,7 @@ def _bin_payload(smart_bin):
 @api_view(['GET'])
 def bin_list_api(request):
     """GET /api/bins/ — public JSON list of all smart bins."""
+    refresh_online_flags()
     bins = SmartBin.objects.all().order_by('bin_id')
     return Response([_bin_payload(b) for b in bins])
 
@@ -75,6 +86,6 @@ def bin_list_api(request):
 @api_view(['GET'])
 def bin_detail_api(request, bin_id):
     """GET /api/bins/<bin_id>/ — public JSON for one bin, 404 if unknown."""
-    from django.shortcuts import get_object_or_404
+    refresh_online_flags()
     smart_bin = get_object_or_404(SmartBin, bin_id=bin_id)
     return Response(_bin_payload(smart_bin))

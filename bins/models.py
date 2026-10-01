@@ -55,6 +55,20 @@ def is_online_for(last_seen, now=None) -> bool:
     return last_seen >= now - threshold
 
 
+def refresh_online_flags() -> int:
+    """Mark stale bins OFFLINE in one query. Returns rows updated.
+
+    Called lazily from bin GET views/APIs so the dashboard never shows a
+    silent bin as online. ESP32 POSTs set is_online=True via mark_seen().
+    """
+    cutoff = timezone.now() - timedelta(
+        minutes=getattr(settings, 'RECIRCUIT_OFFLINE_AFTER_MINUTES', 15)
+    )
+    return SmartBin.objects.filter(is_online=True).exclude(
+        last_seen__gte=cutoff
+    ).update(is_online=False)
+
+
 class SmartBin(models.Model):
     """A physical (or simulated) e-waste collection bin."""
 
