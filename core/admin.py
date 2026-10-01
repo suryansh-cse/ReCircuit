@@ -15,18 +15,18 @@ class ProfileAdmin(admin.ModelAdmin):
 @admin.register(SmartBin)
 class SmartBinAdmin(admin.ModelAdmin):
     list_display = (
-        'bin_id', 'name', 'location', 'fill_percentage',
+        'bin_id', 'name', 'location', 'city', 'fill_level',
         'weight', 'temperature', 'is_online', 'data_source', 'last_seen',
     )
     list_filter = ('is_online', 'data_source')
-    search_fields = ('bin_id', 'name', 'location')
+    search_fields = ('bin_id', 'name', 'location', 'city')
 
 
 @admin.register(Telemetry)
 class TelemetryAdmin(admin.ModelAdmin):
-    list_display = ('bin', 'fill_level', 'weight', 'temperature', 'is_simulated', 'recorded_at')
-    list_filter = ('is_simulated',)
-    date_hierarchy = 'recorded_at'
+    list_display = ('smart_bin', 'fill_level', 'weight', 'temperature', 'data_source', 'timestamp')
+    list_filter = ('data_source',)
+    date_hierarchy = 'timestamp'
 
 
 @admin.register(EwasteSubmission)
@@ -37,8 +37,8 @@ class EwasteSubmissionAdmin(admin.ModelAdmin):
 
 @admin.register(PickupRequest)
 class PickupRequestAdmin(admin.ModelAdmin):
-    list_display = ('id', 'user', 'category', 'status', 'preferred_date', 'created_at')
-    list_filter = ('status', 'category')
+    list_display = ('id', 'user', 'e_waste_category', 'city', 'status', 'preferred_date', 'created_at')
+    list_filter = ('status', 'e_waste_category')
 
 
 @admin.register(Collection)

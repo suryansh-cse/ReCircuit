@@ -1,12 +1,17 @@
 """Smart bin + telemetry models.
 
-Data flow:
+Data flow (Day 4 adds the POST endpoint):
     ESP32 → POST /api/telemetry/ → Telemetry row → SmartBin latest state updated.
 
 - SmartBin holds the *current* state (fast dashboard reads).
 - Telemetry holds the *history* (charts, analytics).
 - `data_source` distinguishes REAL hardware from SIMULATED data (never mix them).
+
+Demo values in SmartBin are placeholders until ESP32 telemetry arrives —
+the UI must label SIMULATED bins as such.
 """
+from datetime import timedelta
+
 from django.conf import settings
 from django.db import models
 from django.utils import timezone
@@ -15,6 +20,39 @@ from django.utils import timezone
 class DataSource(models.TextChoices):
     REAL = 'real', 'Real Device'
     SIMULATED = 'simulated', 'Simulated'
+
+
+# ---------- Reusable helpers (single source of truth — do not duplicate) ----------
+
+def fill_status_for(value: float) -> str:
+    """Fill status rule: 0-59 Normal, 60-79 Warning, 80-100 Collection Required."""
+    warning_at = getattr(settings, 'RECIRCUIT_FILL_WARNING_AT', 60.0)
+    critical_at = getattr(settings, 'RECIRCUIT_FILL_CRITICAL_AT', 80.0)
+    if value >= critical_at:
+        return 'Collection Required'
+    if value >= warning_at:
+        return 'Warning'
+    return 'Normal'
+
+
+def fill_status_code_for(value: float) -> str:
+    """CSS-friendly code for fill_status_for: normal | warning | critical."""
+    return {
+        'Normal': 'normal',
+        'Warning': 'warning',
+        'Collection Required': 'critical',
+    }[fill_status_for(value)]
+
+
+def is_online_for(last_seen, now=None) -> bool:
+    """A bin is ONLINE if last_seen is within the configured threshold."""
+    if last_seen is None:
+        return False
+    now = now or timezone.now()
+    threshold = timedelta(
+        minutes=getattr(settings, 'RECIRCUIT_OFFLINE_AFTER_MINUTES', 15)
+    )
+    return last_seen >= now - threshold
 
 
 class SmartBin(models.Model):
@@ -26,11 +64,12 @@ class SmartBin(models.Model):
     )
     name = models.CharField(max_length=100)
     location = models.CharField(max_length=255)
+    city = models.CharField(max_length=100, blank=True, default='')
     latitude = models.FloatField()
     longitude = models.FloatField()
 
-    # Latest known state (updated on every telemetry POST)
-    fill_percentage = models.FloatField(default=0.0)
+    # Latest known state (updated on every telemetry POST from Day 4)
+    fill_level = models.FloatField(default=0.0, help_text='Fill % 0-100')
     weight = models.FloatField(default=0.0, help_text='Kilograms')
     temperature = models.FloatField(null=True, blank=True, help_text='°C')
 
@@ -56,18 +95,22 @@ class SmartBin(models.Model):
 
     @property
     def status(self) -> str:
-        """Fill-based status rule from the spec."""
-        warning_at = getattr(settings, 'RECIRCUIT_FILL_WARNING_AT', 60.0)
-        critical_at = getattr(settings, 'RECIRCUIT_FILL_CRITICAL_AT', 80.0)
-        if self.fill_percentage >= critical_at:
-            return 'Collection Required'
-        if self.fill_percentage >= warning_at:
-            return 'Warning'
-        return 'Normal'
+        """Human-readable fill status (uses the shared helper)."""
+        return fill_status_for(self.fill_level)
+
+    @property
+    def status_code(self) -> str:
+        """CSS-friendly status: normal | warning | critical."""
+        return fill_status_code_for(self.fill_level)
+
+    @property
+    def computed_online(self) -> bool:
+        """Live online check from last_seen (does not hit the DB)."""
+        return is_online_for(self.last_seen)
 
     def mark_seen(self, *, fill, weight, temperature, data_source):
-        """Update latest state from a telemetry payload."""
-        self.fill_percentage = fill
+        """Update latest state from a telemetry payload (Day 4 caller)."""
+        self.fill_level = fill
         self.weight = weight
         self.temperature = temperature
         self.is_online = True
@@ -76,7 +119,7 @@ class SmartBin(models.Model):
         if data_source == DataSource.REAL:
             self.data_source = DataSource.REAL
         self.save(update_fields=[
-            'fill_percentage', 'weight', 'temperature',
+            'fill_level', 'weight', 'temperature',
             'is_online', 'last_seen', 'data_source', 'updated_at',
         ])
 
@@ -84,24 +127,29 @@ class SmartBin(models.Model):
 class Telemetry(models.Model):
     """One sensor reading from a bin (history for charts)."""
 
-    bin = models.ForeignKey(
+    smart_bin = models.ForeignKey(
         SmartBin, on_delete=models.CASCADE, related_name='telemetry'
     )
     fill_level = models.FloatField(help_text='Fill % 0-100')
     weight = models.FloatField(help_text='Kilograms')
     temperature = models.FloatField(null=True, blank=True, help_text='°C')
-    is_simulated = models.BooleanField(
-        default=True,
-        help_text='True = demo generator, False = real ESP32 hardware',
+    data_source = models.CharField(
+        max_length=10, choices=DataSource.choices, default=DataSource.SIMULATED,
+        help_text='REAL = ESP32 hardware, SIMULATED = demo generator',
     )
-    recorded_at = models.DateTimeField(auto_now_add=True)
+    timestamp = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ['-recorded_at']
+        ordering = ['-timestamp']
         indexes = [
-            models.Index(fields=['bin', '-recorded_at']),
+            models.Index(fields=['smart_bin', '-timestamp']),
         ]
 
     def __str__(self):
-        src = 'SIM' if self.is_simulated else 'REAL'
-        return f'{self.bin.bin_id} {self.fill_level}% [{src}] @ {self.recorded_at:%Y-%m-%d %H:%M}'
+        src = 'SIM' if self.data_source == DataSource.SIMULATED else 'REAL'
+        return f'{self.smart_bin.bin_id} {self.fill_level}% [{src}] @ {self.timestamp:%Y-%m-%d %H:%M}'
+
+    @property
+    def is_simulated(self) -> bool:
+        """Back-compat helper for templates (prefer data_source)."""
+        return self.data_source == DataSource.SIMULATED

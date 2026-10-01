@@ -67,8 +67,9 @@ class PickupRequest(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='pickups'
     )
-    address = models.TextField()
-    category = models.CharField(
+    pickup_address = models.TextField()
+    city = models.CharField(max_length=100)
+    e_waste_category = models.CharField(
         max_length=20, choices=EwasteCategory.choices, default=EwasteCategory.OTHER
     )
     estimated_weight = models.FloatField(help_text='Estimated kg')
@@ -77,6 +78,7 @@ class PickupRequest(models.Model):
         max_length=50, default='Morning (9AM-12PM)',
         help_text='e.g. Morning (9AM-12PM)',
     )
+    additional_notes = models.TextField(blank=True)
     status = models.CharField(
         max_length=20, choices=Status.choices, default=Status.PENDING
     )

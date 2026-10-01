@@ -32,7 +32,7 @@ def dashboard_stats(request):
 
     pending_pickups = PickupRequest.objects.filter(status='pending').count()
     total_pickups = PickupRequest.objects.count()
-    full_bins = SmartBin.objects.filter(fill_percentage__gte=80.0).count()
+    full_bins = SmartBin.objects.filter(fill_level__gte=80.0).count()
 
     return Response({
         'total_users': total_users,
