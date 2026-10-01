@@ -6,7 +6,7 @@ from django.contrib.auth.forms import AuthenticationForm
 from django.db.models import Count, Sum
 from django.shortcuts import get_object_or_404, redirect, render
 
-from bins.models import SmartBin
+from bins.models import SmartBin, refresh_online_flags
 from core.models import Profile
 from waste.models import EwasteSubmission, PickupRequest
 
@@ -241,12 +241,14 @@ def profile_view(request):
 
 def bin_list(request):
     """Public list of all smart bins with live DB values."""
+    refresh_online_flags()
     bins = SmartBin.objects.all().order_by('bin_id')
     return render(request, 'core/bin_list.html', {'bins': bins})
 
 
 def bin_detail(request, bin_id):
     """Public bin detail + recent telemetry (empty state if none yet)."""
+    refresh_online_flags()
     smart_bin = get_object_or_404(SmartBin, bin_id=bin_id)
     recent_telemetry = smart_bin.telemetry.all().order_by('-timestamp')[:10]
     return render(request, 'core/bin_detail.html', {

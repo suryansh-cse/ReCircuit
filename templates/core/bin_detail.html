@@ -10,12 +10,12 @@
         <div>{% if bin.data_source == 'real' %}<span class="badge badge-real">REAL DEVICE</span>{% else %}<span class="badge">SIMULATED</span>{% endif %}</div>
       </div>
       <div class="stat-grid four">
-        <div class="stat"><span class="stat-value">{{ bin.fill_level }}%</span><span class="stat-label">{{ bin.status }}</span></div>
-        <div class="stat"><span class="stat-value">{{ bin.weight }} kg</span><span class="stat-label">weight</span></div>
-        <div class="stat"><span class="stat-value">{% if bin.temperature != None %}{{ bin.temperature }}°C{% else %}—{% endif %}</span><span class="stat-label">temperature</span></div>
-        <div class="stat"><span class="stat-value">{% if bin.is_online %}🟢{% else %}🔴{% endif %}</span><span class="stat-label">{% if bin.is_online %}online{% else %}offline{% endif %} · seen {{ bin.last_seen|date:"d M H:i"|default:"never" }}</span></div>
+        <div class="stat"><span class="stat-value" id="live-fill">{{ bin.fill_level }}%</span><span class="stat-label" id="live-status">{{ bin.status }}</span></div>
+        <div class="stat"><span class="stat-value" id="live-weight">{{ bin.weight }} kg</span><span class="stat-label">weight</span></div>
+        <div class="stat"><span class="stat-value" id="live-temp">{% if bin.temperature != None %}{{ bin.temperature }}°C{% else %}—{% endif %}</span><span class="stat-label">temperature</span></div>
+        <div class="stat"><span class="stat-value" id="live-online">{% if bin.is_online %}🟢{% else %}🔴{% endif %}</span><span class="stat-label" id="live-seen">{% if bin.is_online %}online{% else %}offline{% endif %} · seen {{ bin.last_seen|date:"d M H:i"|default:"never" }}</span></div>
       </div>
-      <p class="muted small">Coordinates: {{ bin.latitude }}, {{ bin.longitude }} · Telemetry endpoint lands Day 4.</p>
+      <p class="muted small">Coordinates: {{ bin.latitude }}, {{ bin.longitude }} · Live — auto-refreshes from <code>/api/bins/{{ bin.bin_id }}/</code> every 10 s · <span id="live-note">waiting for refresh…</span></p>
     </div>
     <div class="card">
       <h3>Recent telemetry</h3>
@@ -38,4 +38,31 @@
     </div>
   </div>
 </section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // Day 4 live view: simple polling (no WebSockets). Values always come from the API.
+  (async function () {
+    const BIN_URL = '/api/bins/{{ bin.bin_id }}/';
+    const note = document.getElementById('live-note');
+    async function refresh() {
+      try {
+        const res = await fetch(BIN_URL);
+        if (!res.ok) return;
+        const d = await res.json();
+        document.getElementById('live-fill').textContent = d.fill_level + '%';
+        document.getElementById('live-status').textContent = d.fill_status;
+        document.getElementById('live-weight').textContent = d.weight + ' kg';
+        document.getElementById('live-temp').textContent = d.temperature !== null ? d.temperature + '°C' : '—';
+        document.getElementById('live-online').textContent = d.is_online ? '🟢' : '🔴';
+        document.getElementById('live-seen').textContent =
+          (d.is_online ? 'online' : 'offline') + ' · seen ' + (d.last_seen ? d.last_seen.slice(0, 16).replace('T', ' ') : 'never');
+        note.textContent = 'refreshed ' + new Date().toLocaleTimeString() + ' · ' + d.data_source.toUpperCase();
+      } catch (e) { note.textContent = 'refresh failed — retrying…'; }
+    }
+    setInterval(refresh, 10000);
+    refresh();
+  })();
+</script>
 {% endblock %}
