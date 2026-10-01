@@ -21,6 +21,8 @@ from rest_framework.response import Response
 from bins.models import DataSource, SmartBin, Telemetry, refresh_online_flags
 from waste.models import Collection, EwasteSubmission, PickupRequest
 
+from .alerts import process_bin_alerts
+
 User = get_user_model()
 
 
@@ -88,7 +90,11 @@ def bin_list_api(request):
 def bin_detail_api(request, bin_id):
     """GET /api/bins/<bin_id>/ — public JSON for one bin, 404 if unknown."""
     refresh_online_flags()
-    smart_bin = get_object_or_404(SmartBin, bin_id=bin_id)
+    try:
+        smart_bin = SmartBin.objects.get(bin_id=bin_id)
+    except SmartBin.DoesNotExist:
+        return Response({'error': 'Smart bin not found.'},
+                        status=status.HTTP_404_NOT_FOUND)
     return Response(_bin_payload(smart_bin))
 
 
@@ -141,7 +147,8 @@ def telemetry_ingest(request):
                         status=status.HTTP_400_BAD_REQUEST)
     errors, cleaned = _validate_telemetry_payload(request.data)
     if errors:
-        return Response({'errors': errors}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'error': 'Invalid telemetry data.', 'details': errors},
+                        status=status.HTTP_400_BAD_REQUEST)
 
     try:
         smart_bin = SmartBin.objects.get(bin_id=cleaned['device_id'])
@@ -165,6 +172,7 @@ def telemetry_ingest(request):
         data_source=DataSource.REAL,
     )
     refresh_online_flags()
+    process_bin_alerts(smart_bin, online_now=True)
     payload = _bin_payload(smart_bin)
     payload['reading_id'] = reading.pk
     return Response(payload, status=status.HTTP_201_CREATED)
@@ -175,12 +183,13 @@ def telemetry_simulate(request):
     """POST /api/telemetry/simulate/ — SIMULATED demo readings (no hardware).
 
     Body {"device_id": "ECO-BIN-001"} simulates one bin; empty body simulates all.
-    Values random-walk from current state (never presented as hardware data:
-    rows and bins stay labelled SIMULATED unless a real device reported).
+    Optional explicit values {"device_id": ..., "fill_level": 90, "weight": 22.5,
+    "temperature": 32} store exactly those (validated, for scenario testing).
+    Otherwise values random-walk from current state. Rows and bins stay labelled
+    SIMULATED unless a real device reported — never presented as hardware data.
     """
-    device_id = None
-    if isinstance(request.data, dict):
-        device_id = request.data.get('device_id')
+    data = request.data if isinstance(request.data, dict) else {}
+    device_id = data.get('device_id')
 
     if device_id:
         bins = list(SmartBin.objects.filter(bin_id=str(device_id).strip()))
@@ -195,13 +204,29 @@ def telemetry_simulate(request):
             return Response({'error': 'No smart bins registered yet.'},
                             status=status.HTTP_404_NOT_FOUND)
 
+    explicit = any(k in data for k in ('fill_level', 'weight', 'temperature'))
+    if explicit:
+        errors, cleaned = _validate_telemetry_payload({
+            'device_id': (bins[0].bin_id if len(bins) == 1 else device_id),
+            'fill_level': data.get('fill_level'),
+            'weight': data.get('weight'),
+            'temperature': data.get('temperature'),
+        })
+        if errors:
+            return Response({'error': 'Invalid telemetry data.', 'details': errors},
+                            status=status.HTTP_400_BAD_REQUEST)
+
     results = []
     for smart_bin in bins:
-        fill = min(100.0, max(0.0, smart_bin.fill_level + random.uniform(-3, 6)))
-        weight = round(fill / 100 * 25 + random.uniform(-0.5, 0.5), 1)
-        weight = max(0.0, weight)
-        base_temp = smart_bin.temperature if smart_bin.temperature is not None else 28.0
-        temperature = round(min(60.0, max(10.0, base_temp + random.uniform(-1, 1))), 1)
+        if explicit:
+            fill, weight, temperature = (
+                cleaned['fill_level'], cleaned['weight'], cleaned['temperature'])
+        else:
+            fill = min(100.0, max(0.0, smart_bin.fill_level + random.uniform(-3, 6)))
+            weight = round(fill / 100 * 25 + random.uniform(-0.5, 0.5), 1)
+            weight = max(0.0, weight)
+            base_temp = smart_bin.temperature if smart_bin.temperature is not None else 28.0
+            temperature = round(min(60.0, max(10.0, base_temp + random.uniform(-1, 1))), 1)
         Telemetry.objects.create(
             smart_bin=smart_bin, fill_level=round(fill, 1),
             weight=weight, temperature=temperature,
@@ -217,6 +242,91 @@ def telemetry_simulate(request):
             'fill_level', 'weight', 'temperature',
             'is_online', 'last_seen', 'updated_at',
         ])
+        process_bin_alerts(smart_bin, online_now=True)
         results.append(_bin_payload(smart_bin))
     refresh_online_flags()
     return Response(results, status=status.HTTP_201_CREATED)
+
+
+def _alert_payload(alert):
+    return {
+        'id': alert.pk,
+        'bin_id': alert.bin.bin_id if alert.bin else None,
+        'alert_type': alert.alert_type,
+        'alert_type_display': alert.get_alert_type_display(),
+        'severity': alert.severity,
+        'message': alert.message,
+        'is_active': alert.is_active,
+        'created_at': alert.created_at.isoformat(),
+        'resolved_at': alert.resolved_at.isoformat() if alert.resolved_at else None,
+    }
+
+
+@api_view(['GET'])
+def alert_list_api(request):
+    """GET /api/alerts/?active=true&severity=critical&bin=ECO-BIN-001."""
+    from .models import Alert
+    alerts = Alert.objects.select_related('bin').all().order_by('-created_at')
+    active = request.GET.get('active')
+    if active == 'true':
+        alerts = alerts.filter(is_active=True)
+    elif active == 'false':
+        alerts = alerts.filter(is_active=False)
+    severity = request.GET.get('severity')
+    if severity:
+        alerts = alerts.filter(severity=severity)
+    bin_id = request.GET.get('bin')
+    if bin_id:
+        alerts = alerts.filter(bin__bin_id=bin_id)
+    return Response([_alert_payload(a) for a in alerts[:100]])
+
+
+@api_view(['GET'])
+def alert_detail_api(request, pk):
+    """GET /api/alerts/<id>/ — 404 JSON if unknown."""
+    from .models import Alert
+    try:
+        alert = Alert.objects.select_related('bin').get(pk=pk)
+    except Alert.DoesNotExist:
+        return Response({'error': 'Alert not found.'},
+                        status=status.HTTP_404_NOT_FOUND)
+    return Response(_alert_payload(alert))
+
+
+@api_view(['POST'])
+def alert_resolve_api(request, pk):
+    """POST /api/alerts/<id>/resolve/ — staff only (403 for anyone else)."""
+    from django.utils import timezone as tz
+
+    from .models import Alert
+    if not request.user.is_authenticated or not request.user.is_staff:
+        return Response({'error': 'Staff permission required.'},
+                        status=status.HTTP_403_FORBIDDEN)
+    try:
+        alert = Alert.objects.get(pk=pk)
+    except Alert.DoesNotExist:
+        return Response({'error': 'Alert not found.'},
+                        status=status.HTTP_404_NOT_FOUND)
+    if alert.is_active:
+        alert.is_active = False
+        alert.resolved_at = tz.now()
+        alert.save(update_fields=['is_active', 'resolved_at'])
+    return Response(_alert_payload(alert))
+
+
+@api_view(['GET'])
+def bin_history_api(request, bin_id):
+    """GET /api/bins/<bin_id>/history/ — last 50 telemetry points for charts."""
+    try:
+        smart_bin = SmartBin.objects.get(bin_id=bin_id)
+    except SmartBin.DoesNotExist:
+        return Response({'error': 'Smart bin not found.'},
+                        status=status.HTTP_404_NOT_FOUND)
+    points = smart_bin.telemetry.all().order_by('-timestamp')[:50]
+    return Response([{
+        'timestamp': p.timestamp.isoformat(),
+        'fill_level': p.fill_level,
+        'weight': p.weight,
+        'temperature': p.temperature,
+        'data_source': p.data_source,
+    } for p in reversed(points)])

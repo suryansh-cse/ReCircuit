@@ -54,6 +54,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'core.context_processors.alert_counts',
             ],
         },
     },
@@ -101,8 +102,9 @@ REST_FRAMEWORK = {
     ],
 }
 
-# ReCircuit thresholds (used by bin status + alerts)
+# ReCircuit thresholds — single source of truth for bins + alert engine.
 RECIRCUIT_FILL_WARNING_AT = 60.0   # 60-79%  -> Warning
 RECIRCUIT_FILL_CRITICAL_AT = 80.0  # 80-100% -> Collection Required
-RECIRCUIT_TEMP_THRESHOLD = 50.0    # °C — alert above this
+RECIRCUIT_TEMP_WARNING_AT = 40.0   # °C — HIGH_TEMPERATURE warning at/above this
+RECIRCUIT_TEMP_CRITICAL_AT = 45.0  # °C — HIGH_TEMPERATURE critical at/above this
 RECIRCUIT_OFFLINE_AFTER_MINUTES = 15

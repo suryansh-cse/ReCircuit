@@ -24,8 +24,9 @@ class SmartBinAdmin(admin.ModelAdmin):
 
 @admin.register(Telemetry)
 class TelemetryAdmin(admin.ModelAdmin):
-    list_display = ('smart_bin', 'fill_level', 'weight', 'temperature', 'data_source', 'timestamp')
+    list_display = ('id', 'smart_bin', 'fill_level', 'weight', 'temperature', 'data_source', 'timestamp')
     list_filter = ('data_source',)
+    search_fields = ('smart_bin__bin_id',)
     date_hierarchy = 'timestamp'
 
 
@@ -55,5 +56,6 @@ class RecyclingRecordAdmin(admin.ModelAdmin):
 
 @admin.register(Alert)
 class AlertAdmin(admin.ModelAdmin):
-    list_display = ('id', 'alert_type', 'severity', 'bin', 'is_resolved', 'created_at')
-    list_filter = ('alert_type', 'severity', 'is_resolved')
+    list_display = ('id', 'bin', 'alert_type', 'severity', 'is_active', 'created_at', 'resolved_at')
+    list_filter = ('alert_type', 'severity', 'is_active')
+    search_fields = ('bin__bin_id', 'message')

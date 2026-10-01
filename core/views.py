@@ -6,8 +6,8 @@ from django.contrib.auth.forms import AuthenticationForm
 from django.db.models import Count, Sum
 from django.shortcuts import get_object_or_404, redirect, render
 
-from bins.models import SmartBin, refresh_online_flags
-from core.models import Profile
+from bins.models import SmartBin
+from core.models import Alert, Profile
 from waste.models import EwasteSubmission, PickupRequest
 
 from .forms import EwasteSubmissionForm, PickupRequestForm, ProfileForm, RegisterForm
@@ -240,15 +240,22 @@ def profile_view(request):
 # ---------- Day 3: smart bins (public) ----------
 
 def bin_list(request):
-    """Public list of all smart bins with live DB values."""
-    refresh_online_flags()
+    """Public live monitoring: DB-backed summary + per-bin state + active alerts."""
+    from .alerts import monitoring_summary, sweep_offline_alerts
+    sweep_offline_alerts()
     bins = SmartBin.objects.all().order_by('bin_id')
-    return render(request, 'core/bin_list.html', {'bins': bins})
+    active_alerts = Alert.objects.filter(is_active=True).select_related('bin')
+    return render(request, 'core/bin_list.html', {
+        'bins': bins,
+        'summary': monitoring_summary(),
+        'active_alerts': active_alerts,
+    })
 
 
 def bin_detail(request, bin_id):
     """Public bin detail + recent telemetry (empty state if none yet)."""
-    refresh_online_flags()
+    from .alerts import sweep_offline_alerts
+    sweep_offline_alerts()
     smart_bin = get_object_or_404(SmartBin, bin_id=bin_id)
     recent_telemetry = smart_bin.telemetry.all().order_by('-timestamp')[:10]
     return render(request, 'core/bin_detail.html', {
