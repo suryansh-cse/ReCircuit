@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Alerts — ReCircuit{% endblock %}
+{% block content %}
+<section class="section">
+  <div class="container">
+    <div class="dash-head">
+      <div><h2>Alerts</h2>
+        {% if active_alert_count == 0 %}
+        <p class="muted">✅ All systems normal — no active alerts.</p>
+        {% else %}
+        <p class="muted">{{ active_alert_count }} active ({{ active_critical_count }} critical). Numbers from the database, never hardcoded.</p>
+        {% endif %}
+      </div>
+      <div class="hero-actions">
+        <a href="{% url 'alert-list' %}?show=active" class="btn {% if show == 'active' %}btn-primary{% else %}btn-outline{% endif %}">Active</a>
+        <a href="{% url 'alert-list' %}?show=all" class="btn {% if show == 'all' %}btn-primary{% else %}btn-outline{% endif %}">All</a>
+        <a href="{% url 'alert-list' %}?show=resolved" class="btn {% if show == 'resolved' %}btn-primary{% else %}btn-outline{% endif %}">Resolved</a>
+      </div>
+    </div>
+
+    {% if show == 'active' %}
+    <div class="two-col dash-cols">
+      <div class="card">
+        <h3>🔴 Critical</h3>
+        {% if critical %}<ul class="alert-feed">{% for a in critical %}{% include "core/_alert_row.html" with a=a %}{% endfor %}</ul>
+        {% else %}<div class="empty">No critical alerts.</div>{% endif %}
+      </div>
+      <div>
+        <div class="card">
+          <h3>🟡 Warning</h3>
+          {% if warning %}<ul class="alert-feed">{% for a in warning %}{% include "core/_alert_row.html" with a=a %}{% endfor %}</ul>
+          {% else %}<div class="empty">No warnings.</div>{% endif %}
+        </div>
+        <div class="card">
+          <h3>🔵 Info</h3>
+          {% if info %}<ul class="alert-feed">{% for a in info %}{% include "core/_alert_row.html" with a=a %}{% endfor %}</ul>
+          {% else %}<div class="empty">No info alerts.</div>{% endif %}
+        </div>
+      </div>
+    </div>
+    {% else %}
+    <div class="card">
+      <h3>{% if show == 'all' %}All alerts{% else %}Resolved alerts{% endif %}</h3>
+      {% if alerts %}
+      <table class="table">
+        <tr><th>Bin</th><th>Type</th><th>Severity</th><th>Message</th><th>Created</th><th>Status</th></tr>
+        {% for a in alerts %}
+        <tr>
+          <td>{% if a.bin %}<a href="{% url 'bin-detail' a.bin.bin_id %}">{{ a.bin.bin_id }}</a>{% else %}—{% endif %}</td>
+          <td>{{ a.get_alert_type_display }}</td>
+          <td><span class="status status-{{ a.severity }}">{{ a.get_severity_display }}</span></td>
+          <td>{{ a.message }}</td>
+          <td>{{ a.created_at|date:"d M H:i" }}</td>
+          <td>{% if a.is_active %}<span class="status status-warning">Active</span>{% else %}resolved {{ a.resolved_at|date:"d M H:i"|default:"" }}{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </table>
+      {% else %}
+      <div class="empty">Nothing here yet.</div>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

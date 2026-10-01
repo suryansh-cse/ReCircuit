@@ -97,6 +97,7 @@ def dashboard(request):
     )
     recent_submissions = submissions.order_by('-created_at')[:5]
     recent_pickups = pickups.order_by('-created_at')[:5]
+    from .alerts import monitoring_summary
 
     return render(request, 'core/dashboard.html', {
         'total_submissions': total_submissions,
@@ -109,6 +110,7 @@ def dashboard(request):
         'recent_submissions': recent_submissions,
         'recent_pickups': recent_pickups,
         'profile': request.user.profile,
+        'monitoring': monitoring_summary(),
     })
 
 
@@ -258,6 +260,28 @@ def bin_detail(request, bin_id):
     sweep_offline_alerts()
     smart_bin = get_object_or_404(SmartBin, bin_id=bin_id)
     recent_telemetry = smart_bin.telemetry.all().order_by('-timestamp')[:10]
+    bin_alerts = Alert.objects.filter(bin=smart_bin, is_active=True)
     return render(request, 'core/bin_detail.html', {
         'bin': smart_bin, 'recent_telemetry': recent_telemetry,
+        'bin_alerts': bin_alerts,
+    })
+
+
+def alert_list_view(request):
+    """Public alerts page: ACTIVE / ALL / RESOLVED filter, grouped by severity."""
+    show = request.GET.get('show', 'active')
+    if show not in ('active', 'all', 'resolved'):
+        show = 'active'
+    alerts = Alert.objects.select_related('bin').all().order_by('-created_at')
+    if show == 'active':
+        alerts = alerts.filter(is_active=True)
+    elif show == 'resolved':
+        alerts = alerts.filter(is_active=False)
+    active = Alert.objects.filter(is_active=True)
+    return render(request, 'core/alerts.html', {
+        'show': show,
+        'alerts': alerts[:100],
+        'critical': active.filter(severity=Alert.Severity.CRITICAL).select_related('bin'),
+        'warning': active.filter(severity=Alert.Severity.WARNING).select_related('bin'),
+        'info': active.filter(severity=Alert.Severity.INFO).select_related('bin'),
     })

@@ -78,6 +78,16 @@
           <h3>Profile</h3>
           <p class="muted small">{{ profile.full_name|default:user.username }}{% if profile.city %} · {{ profile.city }}{% endif %}{% if profile.phone %} · {{ profile.phone }}{% endif %}</p>
         </div>
+        <div class="card">
+          <h3>Smart bins &amp; alerts (live)</h3>
+          <p class="muted small">{{ monitoring.total_bins }} bins · {{ monitoring.online_bins }} online · {{ monitoring.offline_bins }} offline · {{ monitoring.normal_bins }} normal · {{ monitoring.warning_bins }} warning · {{ monitoring.critical_bins }} need collection</p>
+          {% if monitoring.active_alerts %}
+          <p><a href="{% url 'alert-list' %}">⚠ {{ monitoring.active_alerts }} active alert{{ monitoring.active_alerts|pluralize }} ({{ monitoring.critical_alerts }} critical)</a></p>
+          {% else %}
+          <div class="empty">✅ All systems normal — no active alerts.</div>
+          {% endif %}
+          <p><a href="{% url 'bin-list' %}">Open live monitoring →</a></p>
+        </div>
       </div>
     </div>
   </div>

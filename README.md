@@ -26,14 +26,28 @@ Open:
 
 ## 9-day plan
 - Day 1: setup + landing ✅
-- Day 2: auth + user dashboard + submissions
-- Day 3: pickups + admin foundations
-- Day 4: ESP32 telemetry API + bin monitoring
-- Day 5: simulation mode + alerts
+- Day 2: auth + user dashboard + submissions ✅
+- Day 3: pickups + smart-bin foundation ✅
+- Day 4: ESP32 telemetry API + bin monitoring ✅
+- Day 5: live monitoring + alerts ✅
 - Day 6: collections + pickup lifecycle
 - Day 7: recycling + analytics + maps
 - Day 8: polish + responsive + errors
 - Day 9: testing + docs + demo
+
+## Day 5 — live monitoring & alerts
+- Alert engine (`core/alerts.py`): fill / temperature / offline rules, one active
+  alert per (bin, type), severity escalates in place, recovery resolves.
+- Thresholds (central, `config/settings.py`): fill warning 60%, critical 80%;
+  temperature warning 40°C, critical 45°C; offline after 15 min silence.
+- Pages: `/bins/` (5 s polling, summary counts, per-bin alert badges),
+  `/bins/<id>/` (10 s polling + Chart.js history + staff simulate presets),
+  `/alerts/` (Active/All/Resolved + severity groups).
+- APIs: `GET /api/alerts/` (`?active=&severity=&bin=`), `GET /api/alerts/<id>/`,
+  `POST /api/alerts/<id>/resolve/` (staff only), `GET /api/bins/<id>/history/`.
+- Simulate accepts explicit values for scenario testing, always SIMULATED:
+  `{"device_id":"ECO-BIN-001","fill_level":90,"weight":22.5,"temperature":32}`
+- Tests: `python manage.py test core` (16 tests).
 
 ## Migrating to PostgreSQL later
 Swap `DATABASES` in `config/settings.py` — no model changes needed.

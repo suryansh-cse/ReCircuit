@@ -19,6 +19,8 @@ urlpatterns = [
     # Day 3 smart bins (public)
     path('bins/', views.bin_list, name='bin-list'),
     path('bins/<str:bin_id>/', views.bin_detail, name='bin-detail'),
+    # Day 5 alerts (public monitoring)
+    path('alerts/', views.alert_list_view, name='alert-list'),
     # Backward-compat redirects for Day 2 dashboard buttons
     path('schedule-pickup/', views.schedule_pickup_placeholder, name='schedule-pickup'),
     path('find-bins/', views.find_bins_placeholder, name='find-bins'),

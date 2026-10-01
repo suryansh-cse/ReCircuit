@@ -1,0 +1,9 @@
+<li class="alert-item">
+  <span class="status status-{{ a.severity }}">{{ a.get_severity_display }}</span>
+  <div>
+    <strong>{% if a.bin %}<a href="{% url 'bin-detail' a.bin.bin_id %}">{{ a.bin.bin_id }}</a>{% else %}System{% endif %}</strong>
+    <span class="muted">· {{ a.get_alert_type_display }}</span>
+    <div>{{ a.message }}</div>
+    <div class="muted small">{{ a.created_at|date:"d M Y, H:i" }}</div>
+  </div>
+</li>

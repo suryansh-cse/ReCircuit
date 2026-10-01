@@ -166,6 +166,20 @@ code { background: #0f1f18; color: #c6f135; padding: 2px 8px; border-radius: 8px
 .bin-nums strong { font-size: 1.4rem; }
 @media (max-width: 900px) { .bin-grid { grid-template-columns: 1fr 1fr; } }
 
+/* DAY 5 — monitoring, alerts, charts (appended, earlier days untouched) */
+.stat-grid.six { grid-template-columns: repeat(6, 1fr); }
+.conn-error { background: #fdecec; border: 1px solid #f3b8b8; color: #8f1d1d; border-radius: 12px; padding: 10px 16px; margin-bottom: 14px; font-weight: 700; }
+.alert-feed { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 12px; }
+.alert-item { display: flex; gap: 10px; align-items: flex-start; background: #f6faf7; border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
+.alert-banner .flash { margin-bottom: 8px; }
+.flash-critical { background: #fdecec; border: 1px solid #f3b8b8; color: #8f1d1d; }
+.flash-warning { background: #fff6dd; border: 1px solid #e8c53d; color: #7a5c00; }
+.status-info { background: #e8f1fd; color: #1d3f8f; }
+.status-critical { background: #fdecec; color: #8f1d1d; }
+.chart-grid { display: grid; grid-template-columns: 1fr; gap: 18px; }
+.preset-row { flex-wrap: wrap; }
+@media (max-width: 900px) { .stat-grid.six { grid-template-columns: repeat(2, 1fr); } }
+
 /* RESPONSIVE */
 @media (max-width: 900px) {
   .hero-grid, .two-col { grid-template-columns: 1fr; }

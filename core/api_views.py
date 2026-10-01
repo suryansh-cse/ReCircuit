@@ -18,17 +18,17 @@ from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
-from bins.models import DataSource, SmartBin, Telemetry, refresh_online_flags
+from bins.models import DataSource, SmartBin, Telemetry
 from waste.models import Collection, EwasteSubmission, PickupRequest
 
-from .alerts import process_bin_alerts
+from .alerts import process_bin_alerts, sweep_offline_alerts
 
 User = get_user_model()
 
 
 @api_view(['GET'])
 def dashboard_stats(request):
-    refresh_online_flags()
+    sweep_offline_alerts()
     total_users = User.objects.count()
     total_bins = SmartBin.objects.count()
     online_bins = SmartBin.objects.filter(is_online=True).count()
@@ -47,6 +47,9 @@ def dashboard_stats(request):
     total_pickups = PickupRequest.objects.count()
     full_bins = SmartBin.objects.filter(fill_level__gte=80.0).count()
 
+    from .alerts import monitoring_summary
+    monitoring = monitoring_summary()
+
     return Response({
         'total_users': total_users,
         'total_bins': total_bins,
@@ -56,6 +59,13 @@ def dashboard_stats(request):
         'total_ewaste_kg': total_ewaste_kg,
         'pending_pickups': pending_pickups,
         'total_pickups': total_pickups,
+        # Day 5 monitoring (additive — Day 1 fields unchanged)
+        'normal_bins': monitoring['normal_bins'],
+        'warning_bins': monitoring['warning_bins'],
+        'critical_bins': monitoring['critical_bins'],
+        'active_alerts': monitoring['active_alerts'],
+        'critical_alerts': monitoring['critical_alerts'],
+        'warning_alerts': monitoring['warning_alerts'],
     })
 
 
@@ -81,7 +91,7 @@ def _bin_payload(smart_bin):
 @api_view(['GET'])
 def bin_list_api(request):
     """GET /api/bins/ — public JSON list of all smart bins."""
-    refresh_online_flags()
+    sweep_offline_alerts()
     bins = SmartBin.objects.all().order_by('bin_id')
     return Response([_bin_payload(b) for b in bins])
 
@@ -89,7 +99,7 @@ def bin_list_api(request):
 @api_view(['GET'])
 def bin_detail_api(request, bin_id):
     """GET /api/bins/<bin_id>/ — public JSON for one bin, 404 if unknown."""
-    refresh_online_flags()
+    sweep_offline_alerts()
     try:
         smart_bin = SmartBin.objects.get(bin_id=bin_id)
     except SmartBin.DoesNotExist:
@@ -171,7 +181,7 @@ def telemetry_ingest(request):
         temperature=cleaned['temperature'],
         data_source=DataSource.REAL,
     )
-    refresh_online_flags()
+    sweep_offline_alerts()
     process_bin_alerts(smart_bin, online_now=True)
     payload = _bin_payload(smart_bin)
     payload['reading_id'] = reading.pk
@@ -244,7 +254,7 @@ def telemetry_simulate(request):
         ])
         process_bin_alerts(smart_bin, online_now=True)
         results.append(_bin_payload(smart_bin))
-    refresh_online_flags()
+    sweep_offline_alerts()
     return Response(results, status=status.HTTP_201_CREATED)
 
 

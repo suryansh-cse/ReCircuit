@@ -1,28 +1,43 @@
 {% extends "base.html" %}
-{% block title %}Smart Bins — ReCircuit{% endblock %}
+{% block title %}Smart Bins — Live Monitoring — ReCircuit{% endblock %}
 {% block content %}
 <section class="section">
   <div class="container">
     <div class="dash-head">
-      <div><h2>Smart bins</h2><p class="muted">Live database values. <span class="badge">SIMULATED</span> = demo placeholder until ESP32 telemetry arrives (Day 4). <span class="badge badge-real">REAL</span> = actual hardware.</p></div>
+      <div><h2>Smart bins · live</h2><p class="muted">Database values, auto-refreshed every 5 s. <span class="badge">SIMULATED</span> = demo data. <span class="badge badge-real">REAL</span> = ESP32 hardware. <span id="live-note">connecting…</span></p></div>
+      <a href="{% url 'alert-list' %}" class="btn btn-outline">Alerts (<span id="nav-alert-echo">{{ summary.active_alerts }}</span>)</a>
     </div>
+    <div id="conn-error" class="conn-error" hidden>Connection lost — retrying… (showing last known values)</div>
+
+    <div class="stat-grid six" id="summary-row">
+      <div class="stat"><span class="stat-value" id="sum-total">{{ summary.total_bins }}</span><span class="stat-label">total bins</span></div>
+      <div class="stat"><span class="stat-value" id="sum-online">{{ summary.online_bins }}</span><span class="stat-label">online</span></div>
+      <div class="stat"><span class="stat-value" id="sum-offline">{{ summary.offline_bins }}</span><span class="stat-label">offline</span></div>
+      <div class="stat"><span class="stat-value" id="sum-normal">{{ summary.normal_bins }}</span><span class="stat-label">normal</span></div>
+      <div class="stat"><span class="stat-value" id="sum-warning">{{ summary.warning_bins }}</span><span class="stat-label">warning</span></div>
+      <div class="stat"><span class="stat-value" id="sum-critical">{{ summary.critical_bins }}</span><span class="stat-label">collection required</span></div>
+    </div>
+
     {% if bins %}
-    <div class="bin-grid">
+    <div class="bin-grid" id="bin-grid">
       {% for b in bins %}
-      <a class="card bin-card" href="{% url 'bin-detail' b.bin_id %}">
+      <a class="card bin-card" data-bin-id="{{ b.bin_id }}" href="{% url 'bin-detail' b.bin_id %}">
         <div class="bin-head"><strong>{{ b.bin_id }}</strong>
-          {% if b.data_source == 'real' %}<span class="badge badge-real">REAL</span>{% else %}<span class="badge">SIMULATED</span>{% endif %}
+          <span class="src-badge">{% if b.data_source == 'real' %}<span class="badge badge-real">REAL</span>{% else %}<span class="badge">SIMULATED</span>{% endif %}</span>
         </div>
         <div class="muted small">{{ b.location }}{% if b.city %} · {{ b.city }}{% endif %}</div>
         <div class="bin-fill"><div class="bin-fill-bar status-bg-{{ b.status_code }}" style="width: {{ b.fill_level }}%"></div></div>
-        <div class="bin-nums"><strong>{{ b.fill_level }}%</strong>
-          <span class="status status-{{ b.status_code }}">{{ b.status }}</span>
+        <div class="bin-nums"><strong class="fill-num">{{ b.fill_level }}%</strong>
+          <span class="status status-{{ b.status_code }} fill-st">{{ b.status }}</span>
         </div>
         <dl class="specs">
-          <div><dt>Weight</dt><dd>{{ b.weight }} kg</dd></div>
-          <div><dt>Temp</dt><dd>{% if b.temperature != None %}{{ b.temperature }}°C{% else %}—{% endif %}</dd></div>
-          <div><dt>Link</dt><dd>{% if b.is_online %}🟢 ONLINE{% else %}🔴 OFFLINE{% endif %}</dd></div>
+          <div><dt>Weight</dt><dd class="w-num">{{ b.weight }} kg</dd></div>
+          <div><dt>Temp</dt><dd class="t-num">{% if b.temperature != None %}{{ b.temperature }}°C{% else %}—{% endif %}</dd></div>
+          <div><dt>Link</dt><dd class="o-num">{% if b.is_online %}🟢 ONLINE{% else %}🔴 OFFLINE{% endif %}</dd></div>
         </dl>
+        <div class="bin-alert alert-slot">
+          {% for a in active_alerts %}{% if a.bin_id == b.id %}<span class="status status-{{ a.severity }}">{{ a.get_alert_type_display }}</span> {% endif %}{% endfor %}
+        </div>
       </a>
       {% endfor %}
     </div>
@@ -31,4 +46,89 @@
     {% endif %}
   </div>
 </section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // Day 5 live monitoring: 5 s polling of /api/bins/ + /api/alerts/. No WebSockets.
+  (function () {
+    if (window.__binsLive) return;  // prevent duplicate intervals
+    window.__binsLive = true;
+    const note = document.getElementById('live-note');
+    const connErr = document.getElementById('conn-error');
+    const grid = document.getElementById('bin-grid');
+
+    function statusCode(fill) {
+      if (fill >= 80) return 'critical';
+      if (fill >= 60) return 'warning';
+      return 'normal';
+    }
+    function statusLabel(fill) {
+      if (fill >= 80) return 'Collection Required';
+      if (fill >= 60) return 'Warning';
+      return 'Normal';
+    }
+
+    async function refresh() {
+      try {
+        const [binsRes, alertsRes] = await Promise.all([
+          fetch('/api/bins/'), fetch('/api/alerts/?active=true'),
+        ]);
+        if (!binsRes.ok || !alertsRes.ok) throw new Error('HTTP');
+        const bins = await binsRes.json();
+        const alerts = await alertsRes.json();
+        connErr.hidden = true;
+
+        // Summary: derive from the same DB-backed payloads (never hardcoded).
+        const byBin = {};
+        bins.forEach((b) => { byBin[b.bin_id] = b; });
+        const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+        set('sum-total', bins.length);
+        set('sum-online', bins.filter((b) => b.is_online).length);
+        set('sum-offline', bins.filter((b) => !b.is_online).length);
+        set('sum-normal', bins.filter((b) => statusCode(b.fill_level) === 'normal').length);
+        set('sum-warning', bins.filter((b) => statusCode(b.fill_level) === 'warning').length);
+        set('sum-critical', bins.filter((b) => statusCode(b.fill_level) === 'critical').length);
+        set('nav-alert-echo', alerts.length);
+
+        const byBinAlerts = {};
+        alerts.forEach((a) => { (byBinAlerts[a.bin_id] = byBinAlerts[a.bin_id] || []).push(a); });
+
+        if (grid) {
+          const cards = grid.querySelectorAll('[data-bin-id]');
+          const seen = new Set();
+          cards.forEach((card) => {
+            const b = byBin[card.getAttribute('data-bin-id')];
+            if (!b) return;
+            seen.add(b.bin_id);
+            const code = statusCode(b.fill_level);
+            card.querySelector('.fill-num').textContent = b.fill_level + '%';
+            const bar = card.querySelector('.bin-fill-bar');
+            bar.style.width = Math.min(100, b.fill_level) + '%';
+            bar.className = 'bin-fill-bar status-bg-' + code;
+            const st = card.querySelector('.fill-st');
+            st.textContent = b.fill_status;
+            st.className = 'status status-' + code;
+            card.querySelector('.w-num').textContent = b.weight + ' kg';
+            card.querySelector('.t-num').textContent = b.temperature !== null ? b.temperature + '°C' : '—';
+            card.querySelector('.o-num').textContent = b.is_online ? '🟢 ONLINE' : '🔴 OFFLINE';
+            card.querySelector('.src-badge').innerHTML = b.data_source === 'real'
+              ? '<span class="badge badge-real">REAL</span>' : '<span class="badge">SIMULATED</span>';
+            const slot = card.querySelector('.alert-slot');
+            slot.innerHTML = (byBinAlerts[b.bin_id] || [])
+              .map((a) => '<span class="status status-' + a.severity + '">' + a.alert_type_display + '</span>').join(' ');
+          });
+          // New bin appeared/disappeared → reload once for correct server render.
+          if (cards.length !== bins.length) { location.reload(); return; }
+        }
+        note.textContent = 'live · updated ' + new Date().toLocaleTimeString();
+      } catch (e) {
+        connErr.hidden = false;
+        note.textContent = 'connection lost — retrying…';
+      }
+    }
+    setInterval(refresh, 5000);
+    refresh();
+  })();
+</script>
 {% endblock %}

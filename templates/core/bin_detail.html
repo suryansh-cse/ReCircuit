@@ -1,9 +1,19 @@
 {% extends "base.html" %}
 {% block title %}{{ bin.bin_id }} — ReCircuit{% endblock %}
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+{% endblock %}
 {% block content %}
 <section class="section">
   <div class="container">
     <p><a href="{% url 'bin-list' %}">← All bins</a></p>
+    {% if bin_alerts %}
+    <div class="card alert-banner">
+      {% for a in bin_alerts %}
+      <div class="flash flash-{{ a.severity }}">{{ a.get_alert_type_display }}: {{ a.message }}</div>
+      {% endfor %}
+    </div>
+    {% endif %}
     <div class="card">
       <div class="dash-head">
         <div><h2>{{ bin.bin_id }}</h2><p class="muted">{{ bin.name }} · {{ bin.location }}{% if bin.city %} · {{ bin.city }}{% endif %}</p></div>
@@ -36,6 +46,29 @@
       <div class="empty">No telemetry records yet. Readings posted by the ESP32 API (Day 4) or added in admin will appear here — no fake chart data.</div>
       {% endif %}
     </div>
+    <div class="card">
+      <h3>History (last 50 readings, real database rows)</h3>
+      <div id="charts-empty" class="empty" hidden>No telemetry history available yet.</div>
+      <div class="chart-grid">
+        <div><h4>Fill level %</h4><canvas id="ch-fill" height="140"></canvas></div>
+        <div><h4>Weight kg</h4><canvas id="ch-weight" height="140"></canvas></div>
+        <div><h4>Temperature °C</h4><canvas id="ch-temp" height="140"></canvas></div>
+      </div>
+    </div>
+    {% if user.is_staff %}
+    <div class="card">
+      <h3>Demo simulation (staff only, always SIMULATED)</h3>
+      <p class="muted small">Posts explicit scenario values to <code>/api/telemetry/simulate/</code> for this bin. Never presented as hardware data.</p>
+      <div class="hero-actions preset-row">
+        <button class="btn btn-outline" data-sim='{"fill_level":35,"weight":8.8,"temperature":29}'>Normal 35°/29°</button>
+        <button class="btn btn-outline" data-sim='{"fill_level":70,"weight":17.5,"temperature":31}'>Warning 70°/31°</button>
+        <button class="btn btn-outline" data-sim='{"fill_level":90,"weight":22.5,"temperature":32}'>Full 90°/32°</button>
+        <button class="btn btn-outline" data-sim='{"fill_level":50,"weight":12.5,"temperature":46}'>Hot 50°/46°</button>
+        <button class="btn btn-outline" data-sim='{"fill_level":30,"weight":7.5,"temperature":29}'>Recover 30°/29°</button>
+      </div>
+      <p class="muted small" id="sim-note"></p>
+    </div>
+    {% endif %}
   </div>
 </section>
 {% endblock %}
@@ -64,5 +97,41 @@
     setInterval(refresh, 10000);
     refresh();
   })();
+
+  // Day 5 charts: real telemetry history from /api/bins/<id>/history/.
+  (async function () {
+    try {
+      const res = await fetch('/api/bins/{{ bin.bin_id }}/history/');
+      if (!res.ok) return;
+      const pts = await res.json();
+      if (!pts.length) { document.getElementById('charts-empty').hidden = false; return; }
+      const labels = pts.map((p) => p.timestamp.slice(5, 16).replace('T', ' '));
+      const mk = (id, data, color, label) => new Chart(document.getElementById(id), {
+        type: 'line',
+        data: { labels, datasets: [{ label, data, borderColor: color, tension: 0.2, pointRadius: 2 }] },
+        options: { responsive: true, plugins: { legend: { display: false } }, scales: { x: { ticks: { maxTicksLimit: 6 } } } },
+      });
+      mk('ch-fill', pts.map((p) => p.fill_level), '#0e9f6e', 'Fill %');
+      mk('ch-weight', pts.map((p) => p.weight), '#1d3f8f', 'kg');
+      mk('ch-temp', pts.map((p) => p.temperature), '#e05252', '°C');
+    } catch (e) { document.getElementById('charts-empty').hidden = false; }
+  })();
+
+  // Day 5 staff demo presets → simulate endpoint (SIMULATED, explicit values).
+  document.querySelectorAll('[data-sim]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const note = document.getElementById('sim-note');
+      note.textContent = 'posting…';
+      try {
+        const body = Object.assign({ device_id: '{{ bin.bin_id }}' }, JSON.parse(btn.dataset.sim));
+        const res = await fetch('/api/telemetry/simulate/', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        note.textContent = res.ok ? 'posted SIMULATED reading — page refreshes values shortly.' : 'failed: HTTP ' + res.status;
+        setTimeout(() => location.reload(), 1500);
+      } catch (e) { note.textContent = 'request failed.'; }
+    });
+  });
 </script>
 {% endblock %}
