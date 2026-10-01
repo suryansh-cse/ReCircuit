@@ -88,6 +88,11 @@ STATICFILES_DIRS = [BASE_DIR / 'static']
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# Auth redirects (Day 2)
+LOGIN_URL = '/login/'
+LOGIN_REDIRECT_URL = '/dashboard/'
+LOGOUT_REDIRECT_URL = '/'
+
 # DRF — open by default on Day 1; we lock down per-view from Day 2 onwards.
 REST_FRAMEWORK = {
     'DEFAULT_RENDERER_CLASSES': [

@@ -6,11 +6,13 @@ from django.db import models
 class EwasteCategory(models.TextChoices):
     SMARTPHONE = 'smartphone', 'Smartphone'
     LAPTOP = 'laptop', 'Laptop'
+    TABLET = 'tablet', 'Tablet'
     BATTERY = 'battery', 'Battery'
     CHARGER = 'charger', 'Charger'
     CABLE = 'cable', 'Cable'
     MONITOR = 'monitor', 'Monitor'
-    OTHER = 'other', 'Other Electronics'
+    TELEVISION = 'television', 'Television'
+    OTHER = 'other', 'Other'
 
 
 class EwasteSubmission(models.Model):
@@ -18,15 +20,14 @@ class EwasteSubmission(models.Model):
 
     class Condition(models.TextChoices):
         WORKING = 'working', 'Working'
-        REPAIRABLE = 'repairable', 'Repairable'
-        DEAD = 'dead', 'Dead / Not Working'
-        DAMAGED = 'damaged', 'Physically Damaged'
+        DAMAGED = 'damaged', 'Damaged'
+        NON_FUNCTIONAL = 'non_functional', 'Non-functional'
+        UNKNOWN = 'unknown', 'Unknown'
 
     class Status(models.TextChoices):
         SUBMITTED = 'submitted', 'Submitted'
-        APPROVED = 'approved', 'Approved'
-        SCHEDULED = 'scheduled', 'Scheduled for Pickup'
         COLLECTED = 'collected', 'Collected'
+        PROCESSING = 'processing', 'Processing'
         RECYCLED = 'recycled', 'Recycled'
 
     user = models.ForeignKey(
@@ -41,6 +42,7 @@ class EwasteSubmission(models.Model):
         max_length=20, choices=Status.choices, default=Status.SUBMITTED
     )
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ['-created_at']
