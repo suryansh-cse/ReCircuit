@@ -1,9 +1,11 @@
-"""Day 2 forms — server-side validation only (never trust client alone)."""
+"""Day 2 forms + Day 3 pickup/profile forms — server-side validation only."""
+import datetime
+
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
 
-from waste.models import EwasteSubmission
+from waste.models import EwasteSubmission, PickupRequest
 
 
 class RegisterForm(UserCreationForm):
@@ -58,3 +60,37 @@ class EwasteSubmissionForm(forms.ModelForm):
         if weight <= 0 or weight > 10000:
             raise forms.ValidationError('Weight must be between 0.01 and 10000 kg.')
         return weight
+
+
+class PickupRequestForm(forms.ModelForm):
+    """Doorstep pickup request — user and status are set server-side."""
+
+    class Meta:
+        model = PickupRequest
+        fields = (
+            'pickup_address', 'city', 'e_waste_category', 'estimated_weight',
+            'preferred_date', 'preferred_time', 'additional_notes',
+        )
+        widgets = {
+            'pickup_address': forms.Textarea(attrs={'class': 'input', 'rows': 2}),
+            'city': forms.TextInput(attrs={'class': 'input'}),
+            'e_waste_category': forms.Select(attrs={'class': 'input'}),
+            'estimated_weight': forms.NumberInput(
+                attrs={'class': 'input', 'min': 0.1, 'max': 10000, 'step': 0.1}
+            ),
+            'preferred_date': forms.DateInput(attrs={'class': 'input', 'type': 'date'}),
+            'preferred_time': forms.TextInput(attrs={'class': 'input'}),
+            'additional_notes': forms.Textarea(attrs={'class': 'input', 'rows': 2}),
+        }
+
+    def clean_estimated_weight(self):
+        weight = self.cleaned_data['estimated_weight']
+        if weight <= 0 or weight > 10000:
+            raise forms.ValidationError('Weight must be between 0.1 and 10000 kg.')
+        return weight
+
+    def clean_preferred_date(self):
+        date = self.cleaned_data['preferred_date']
+        if date < datetime.date.today():
+            raise forms.ValidationError('Preferred date cannot be in the past.')
+        return date

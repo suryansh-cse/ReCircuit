@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Pickup #{{ pickup.pk }} — ReCircuit{% endblock %}
+{% block content %}
+<section class="section">
+  <div class="container narrow">
+    <p><a href="{% url 'pickup-my' %}">← My pickups</a></p>
+    <div class="card">
+      <div class="dash-head">
+        <h2>Pickup #{{ pickup.pk }}</h2>
+        <span class="status status-{{ pickup.status }}">{{ pickup.get_status_display }}</span>
+      </div>
+      {% if pickup.status == 'cancelled' %}
+      <div class="form-errors">This request was cancelled. Contact support if you need a new collection.</div>
+      {% else %}
+      <ol class="tracker">
+        {% for s in stages %}
+        <li class="tracker-step{% if s.done %} done{% endif %}{% if s.current %} current{% endif %}">
+          <span class="tracker-dot"></span>{{ s.label }}
+        </li>
+        {% endfor %}
+      </ol>
+      {% endif %}
+      <dl class="specs">
+        <div><dt>Address</dt><dd>{{ pickup.pickup_address }}, {{ pickup.city }}</dd></div>
+        <div><dt>Category</dt><dd>{{ pickup.get_e_waste_category_display }}</dd></div>
+        <div><dt>Estimated weight</dt><dd>{{ pickup.estimated_weight }} kg</dd></div>
+        <div><dt>Preferred slot</dt><dd>{{ pickup.preferred_date|date:"d M Y" }} · {{ pickup.preferred_time }}</dd></div>
+        {% if pickup.additional_notes %}<div><dt>Notes</dt><dd>{{ pickup.additional_notes }}</dd></div>{% endif %}
+        <div><dt>Requested</dt><dd>{{ pickup.created_at|date:"d M Y, H:i" }}</dd></div>
+        <div><dt>Last updated</dt><dd>{{ pickup.updated_at|date:"d M Y, H:i" }}</dd></div>
+      </dl>
+      <p class="muted small">Status changes are made by the admin/collection team — users cannot modify status themselves.</p>
+    </div>
+  </div>
+</section>
+{% endblock %}

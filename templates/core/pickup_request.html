@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Request Pickup — ReCircuit{% endblock %}
+{% block content %}
+<section class="section">
+  <div class="container narrow">
+    <h2>Request a pickup</h2>
+    <p class="muted">We collect from your doorstep. New requests always start as <strong>Pending</strong> — our team assigns a collector (Day 6 workflow).</p>
+    <form method="post" class="card form">
+      {% csrf_token %}
+      {% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}
+      <label>Pickup address {{ form.pickup_address }}</label>
+      {% if form.pickup_address.errors %}<div class="field-error">{{ form.pickup_address.errors }}</div>{% endif %}
+      <label>City {{ form.city }}</label>
+      {% if form.city.errors %}<div class="field-error">{{ form.city.errors }}</div>{% endif %}
+      <label>E-waste category {{ form.e_waste_category }}</label>
+      {% if form.e_waste_category.errors %}<div class="field-error">{{ form.e_waste_category.errors }}</div>{% endif %}
+      <label>Estimated weight (kg) {{ form.estimated_weight }}</label>
+      {% if form.estimated_weight.errors %}<div class="field-error">{{ form.estimated_weight.errors }}</div>{% endif %}
+      <label>Preferred date {{ form.preferred_date }}</label>
+      {% if form.preferred_date.errors %}<div class="field-error">{{ form.preferred_date.errors }}</div>{% endif %}
+      <label>Preferred time {{ form.preferred_time }}</label>
+      {% if form.preferred_time.errors %}<div class="field-error">{{ form.preferred_time.errors }}</div>{% endif %}
+      <label>Additional notes {{ form.additional_notes }}</label>
+      <button type="submit" class="btn btn-primary btn-block">Request Pickup</button>
+    </form>
+  </div>
+</section>
+{% endblock %}

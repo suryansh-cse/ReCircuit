@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Smart Bins — ReCircuit{% endblock %}
+{% block content %}
+<section class="section">
+  <div class="container">
+    <div class="dash-head">
+      <div><h2>Smart bins</h2><p class="muted">Live database values. <span class="badge">SIMULATED</span> = demo placeholder until ESP32 telemetry arrives (Day 4). <span class="badge badge-real">REAL</span> = actual hardware.</p></div>
+    </div>
+    {% if bins %}
+    <div class="bin-grid">
+      {% for b in bins %}
+      <a class="card bin-card" href="{% url 'bin-detail' b.bin_id %}">
+        <div class="bin-head"><strong>{{ b.bin_id }}</strong>
+          {% if b.data_source == 'real' %}<span class="badge badge-real">REAL</span>{% else %}<span class="badge">SIMULATED</span>{% endif %}
+        </div>
+        <div class="muted small">{{ b.location }}{% if b.city %} · {{ b.city }}{% endif %}</div>
+        <div class="bin-fill"><div class="bin-fill-bar status-bg-{{ b.status_code }}" style="width: {{ b.fill_level }}%"></div></div>
+        <div class="bin-nums"><strong>{{ b.fill_level }}%</strong>
+          <span class="status status-{{ b.status_code }}">{{ b.status }}</span>
+        </div>
+        <dl class="specs">
+          <div><dt>Weight</dt><dd>{{ b.weight }} kg</dd></div>
+          <div><dt>Temp</dt><dd>{% if b.temperature != None %}{{ b.temperature }}°C{% else %}—{% endif %}</dd></div>
+          <div><dt>Link</dt><dd>{% if b.is_online %}🟢 ONLINE{% else %}🔴 OFFLINE{% endif %}</dd></div>
+        </dl>
+      </a>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="card"><div class="empty">No smart bins registered yet. Bins added in Django admin will appear here.</div></div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

@@ -21,12 +21,14 @@
         {% if user.is_authenticated %}
           <a href="{% url 'dashboard' %}">Dashboard</a>
           <a href="{% url 'my-ewaste' %}">My E-Waste</a>
-          <a href="{% url 'submit-ewaste' %}" class="btn btn-primary">+ Submit</a>
-          <span class="nav-user">{{ user.username }}</span>
+          <a href="{% url 'pickup-request' %}">Schedule Pickup</a>
+          <a href="{% url 'pickup-my' %}">My Pickups</a>
+          <a href="{% url 'bin-list' %}">Smart Bins</a>
+          <a href="{% url 'profile' %}" class="nav-user">{{ user.username }}</a>
           <a href="{% url 'logout' %}" class="btn btn-ghost">Logout</a>
         {% else %}
           <a href="{% url 'landing' %}#how">How it works</a>
-          <a href="{% url 'landing' %}#bins">Smart bins</a>
+          <a href="{% url 'bin-list' %}">Smart bins</a>
           <a href="{% url 'landing' %}#stats">Live impact</a>
           <a href="{% url 'login' %}">Login</a>
           <a href="{% url 'register' %}" class="btn btn-primary">Get started</a>

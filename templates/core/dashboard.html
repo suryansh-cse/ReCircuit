@@ -10,8 +10,8 @@
       </div>
       <div class="hero-actions">
         <a href="{% url 'submit-ewaste' %}" class="btn btn-primary">Submit E-Waste</a>
-        <a href="{% url 'schedule-pickup' %}" class="btn btn-outline">Schedule Pickup</a>
-        <a href="{% url 'find-bins' %}" class="btn btn-outline">Find Smart Bins</a>
+        <a href="{% url 'pickup-request' %}" class="btn btn-outline">Schedule Pickup</a>
+        <a href="{% url 'bin-list' %}" class="btn btn-outline">Find Smart Bins</a>
       </div>
     </div>
 
@@ -19,6 +19,10 @@
       <div class="stat"><span class="stat-value">{{ total_submissions }}</span><span class="stat-label">total submissions</span></div>
       <div class="stat"><span class="stat-value">{{ total_weight }} kg</span><span class="stat-label">estimated weight</span></div>
       <div class="stat"><span class="stat-value">{{ pending_pickups }}</span><span class="stat-label">pending pickups</span></div>
+      <div class="stat"><span class="stat-value">{{ active_pickups }}</span><span class="stat-label">active pickups</span></div>
+    </div>
+    <div class="stat-grid four">
+      <div class="stat"><span class="stat-value">{{ completed_pickups }}</span><span class="stat-label">completed pickups</span></div>
       <div class="stat"><span class="stat-value">{{ recycled_items }}</span><span class="stat-label">recycled items</span></div>
     </div>
 
@@ -50,11 +54,12 @@
           <table class="table">
             <tr><th>ID</th><th>Category</th><th>Status</th><th>Date</th></tr>
             {% for p in recent_pickups %}
-            <tr><td>#{{ p.pk }}</td><td>{{ p.get_category_display }}</td><td><span class="status status-{{ p.status }}">{{ p.get_status_display }}</span></td><td>{{ p.created_at|date:"d M Y" }}</td></tr>
+            <tr><td><a href="{% url 'pickup-detail' p.pk %}">#{{ p.pk }}</a></td><td>{{ p.get_e_waste_category_display }}</td><td><span class="status status-{{ p.status }}">{{ p.get_status_display }}</span></td><td>{{ p.created_at|date:"d M Y" }}</td></tr>
             {% endfor %}
           </table>
+          <p><a href="{% url 'pickup-my' %}">View all →</a></p>
           {% else %}
-          <div class="empty">No pickups yet. Pickup requests open on Day 3.</div>
+          <div class="empty">No pickups yet. <a href="{% url 'pickup-request' %}">Schedule a pickup</a>.</div>
           {% endif %}
         </div>
         <div class="card">

@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}{{ bin.bin_id }} — ReCircuit{% endblock %}
+{% block content %}
+<section class="section">
+  <div class="container">
+    <p><a href="{% url 'bin-list' %}">← All bins</a></p>
+    <div class="card">
+      <div class="dash-head">
+        <div><h2>{{ bin.bin_id }}</h2><p class="muted">{{ bin.name }} · {{ bin.location }}{% if bin.city %} · {{ bin.city }}{% endif %}</p></div>
+        <div>{% if bin.data_source == 'real' %}<span class="badge badge-real">REAL DEVICE</span>{% else %}<span class="badge">SIMULATED</span>{% endif %}</div>
+      </div>
+      <div class="stat-grid four">
+        <div class="stat"><span class="stat-value">{{ bin.fill_level }}%</span><span class="stat-label">{{ bin.status }}</span></div>
+        <div class="stat"><span class="stat-value">{{ bin.weight }} kg</span><span class="stat-label">weight</span></div>
+        <div class="stat"><span class="stat-value">{% if bin.temperature != None %}{{ bin.temperature }}°C{% else %}—{% endif %}</span><span class="stat-label">temperature</span></div>
+        <div class="stat"><span class="stat-value">{% if bin.is_online %}🟢{% else %}🔴{% endif %}</span><span class="stat-label">{% if bin.is_online %}online{% else %}offline{% endif %} · seen {{ bin.last_seen|date:"d M H:i"|default:"never" }}</span></div>
+      </div>
+      <p class="muted small">Coordinates: {{ bin.latitude }}, {{ bin.longitude }} · Telemetry endpoint lands Day 4.</p>
+    </div>
+    <div class="card">
+      <h3>Recent telemetry</h3>
+      {% if recent_telemetry %}
+      <table class="table">
+        <tr><th>Time</th><th>Fill</th><th>Weight</th><th>Temp</th><th>Source</th></tr>
+        {% for t in recent_telemetry %}
+        <tr>
+          <td>{{ t.timestamp|date:"d M Y, H:i" }}</td>
+          <td>{{ t.fill_level }}%</td>
+          <td>{{ t.weight }} kg</td>
+          <td>{% if t.temperature != None %}{{ t.temperature }}°C{% else %}—{% endif %}</td>
+          <td>{% if t.data_source == 'real' %}<span class="badge badge-real">REAL</span>{% else %}<span class="badge">SIMULATED</span>{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </table>
+      {% else %}
+      <div class="empty">No telemetry records yet. Readings posted by the ESP32 API (Day 4) or added in admin will appear here — no fake chart data.</div>
+      {% endif %}
+    </div>
+  </div>
+</section>
+{% endblock %}

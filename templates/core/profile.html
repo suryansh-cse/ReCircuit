@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Profile — ReCircuit{% endblock %}
+{% block content %}
+<section class="section">
+  <div class="container narrow">
+    <h2>Profile</h2>
+    <p class="muted">{{ user.username }} · {{ user.email }} · member since {{ user.date_joined|date:"d M Y" }}</p>
+    <form method="post" class="card form">
+      {% csrf_token %}
+      <label>Full name {{ form.full_name }}</label>
+      <label>Phone {{ form.phone }}</label>
+      <label>City {{ form.city }}</label>
+      <label>Address {{ form.address }}</label>
+      <button type="submit" class="btn btn-primary btn-block">Save profile</button>
+    </form>
+  </div>
+</section>
+{% endblock %}
