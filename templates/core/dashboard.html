@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — ReCircuit{% endblock %}
+{% block content %}
+<section class="section">
+  <div class="container">
+    <div class="dash-head">
+      <div>
+        <h2>Hello, {{ user.username }} 👋</h2>
+        <p class="muted">All numbers below come from your own database records — 0 means no data yet, not a placeholder.</p>
+      </div>
+      <div class="hero-actions">
+        <a href="{% url 'submit-ewaste' %}" class="btn btn-primary">Submit E-Waste</a>
+        <a href="{% url 'schedule-pickup' %}" class="btn btn-outline">Schedule Pickup</a>
+        <a href="{% url 'find-bins' %}" class="btn btn-outline">Find Smart Bins</a>
+      </div>
+    </div>
+
+    <div class="stat-grid four">
+      <div class="stat"><span class="stat-value">{{ total_submissions }}</span><span class="stat-label">total submissions</span></div>
+      <div class="stat"><span class="stat-value">{{ total_weight }} kg</span><span class="stat-label">estimated weight</span></div>
+      <div class="stat"><span class="stat-value">{{ pending_pickups }}</span><span class="stat-label">pending pickups</span></div>
+      <div class="stat"><span class="stat-value">{{ recycled_items }}</span><span class="stat-label">recycled items</span></div>
+    </div>
+
+    <div class="two-col dash-cols">
+      <div class="card">
+        <h3>Recent e-waste submissions</h3>
+        {% if recent_submissions %}
+        <table class="table">
+          <tr><th>ID</th><th>Category</th><th>Qty</th><th>Weight</th><th>Status</th></tr>
+          {% for s in recent_submissions %}
+          <tr>
+            <td>EW-{{ s.pk|stringformat:"04d" }}</td>
+            <td>{{ s.get_category_display }}</td>
+            <td>{{ s.quantity }}</td>
+            <td>{{ s.estimated_weight }} kg</td>
+            <td><span class="status status-{{ s.status }}">{{ s.get_status_display }}</span></td>
+          </tr>
+          {% endfor %}
+        </table>
+        <p><a href="{% url 'my-ewaste' %}">View all →</a></p>
+        {% else %}
+        <div class="empty">No submissions yet. <a href="{% url 'submit-ewaste' %}">Submit your first e-waste</a>.</div>
+        {% endif %}
+      </div>
+      <div>
+        <div class="card">
+          <h3>Recent pickup requests</h3>
+          {% if recent_pickups %}
+          <table class="table">
+            <tr><th>ID</th><th>Category</th><th>Status</th><th>Date</th></tr>
+            {% for p in recent_pickups %}
+            <tr><td>#{{ p.pk }}</td><td>{{ p.get_category_display }}</td><td><span class="status status-{{ p.status }}">{{ p.get_status_display }}</span></td><td>{{ p.created_at|date:"d M Y" }}</td></tr>
+            {% endfor %}
+          </table>
+          {% else %}
+          <div class="empty">No pickups yet. Pickup requests open on Day 3.</div>
+          {% endif %}
+        </div>
+        <div class="card">
+          <h3>Recycling status</h3>
+          {% if status_breakdown %}
+          <ul class="status-list">
+            {% for row in status_breakdown %}
+            <li><span class="status status-{{ row.status }}">{{ row.status|title }}</span> × {{ row.count }}</li>
+            {% endfor %}
+          </ul>
+          {% else %}
+          <div class="empty">Nothing in the recycling pipeline yet.</div>
+          {% endif %}
+        </div>
+        <div class="card">
+          <h3>Profile</h3>
+          <p class="muted small">{{ profile.full_name|default:user.username }}{% if profile.city %} · {{ profile.city }}{% endif %}{% if profile.phone %} · {{ profile.phone }}{% endif %}</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

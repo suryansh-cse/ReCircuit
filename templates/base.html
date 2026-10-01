@@ -18,15 +18,30 @@
         <span class="brand-tag">Track. Collect. Recycle.</span>
       </a>
       <nav class="nav-links">
-        <a href="#how">How it works</a>
-        <a href="#why">Why e-waste</a>
-        <a href="#bins">Smart bins</a>
-        <a href="#stats">Live impact</a>
-        <a href="/admin/" class="btn btn-ghost">Admin</a>
-        <a href="#cta" class="btn btn-primary">Get started</a>
+        {% if user.is_authenticated %}
+          <a href="{% url 'dashboard' %}">Dashboard</a>
+          <a href="{% url 'my-ewaste' %}">My E-Waste</a>
+          <a href="{% url 'submit-ewaste' %}" class="btn btn-primary">+ Submit</a>
+          <span class="nav-user">{{ user.username }}</span>
+          <a href="{% url 'logout' %}" class="btn btn-ghost">Logout</a>
+        {% else %}
+          <a href="{% url 'landing' %}#how">How it works</a>
+          <a href="{% url 'landing' %}#bins">Smart bins</a>
+          <a href="{% url 'landing' %}#stats">Live impact</a>
+          <a href="{% url 'login' %}">Login</a>
+          <a href="{% url 'register' %}" class="btn btn-primary">Get started</a>
+        {% endif %}
       </nav>
     </div>
   </header>
+
+  {% if messages %}
+  <div class="container flash-wrap">
+    {% for message in messages %}
+      <div class="flash flash-{{ message.tags|default:'info' }}">{{ message }}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
 
   <main>
     {% block content %}{% endblock %}

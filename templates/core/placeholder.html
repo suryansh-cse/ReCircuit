@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} — ReCircuit{% endblock %}
+{% block content %}
+<section class="section">
+  <div class="container narrow">
+    <div class="card">
+      <h2>{{ title }}</h2>
+      <p>{{ message }}</p>
+      <div class="hero-actions">
+        <a href="{% url 'dashboard' %}" class="btn btn-primary">Back to dashboard</a>
+        <a href="{% url 'my-ewaste' %}" class="btn btn-outline">My e-waste</a>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

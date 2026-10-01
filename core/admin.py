@@ -8,8 +8,8 @@ from waste.models import Collection, EwasteSubmission, PickupRequest, RecyclingR
 
 @admin.register(Profile)
 class ProfileAdmin(admin.ModelAdmin):
-    list_display = ('user', 'phone', 'created_at')
-    search_fields = ('user__username', 'phone')
+    list_display = ('user', 'full_name', 'city', 'phone', 'created_at')
+    search_fields = ('user__username', 'full_name', 'phone', 'city')
 
 
 @admin.register(SmartBin)

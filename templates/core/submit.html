@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Submit E-Waste — ReCircuit{% endblock %}
+{% block content %}
+<section class="section">
+  <div class="container narrow">
+    <h2>Submit e-waste</h2>
+    <p class="muted">Example: Laptop · 1 · 2.4 kg · Damaged · "Old laptop with damaged display."</p>
+    <form method="post" class="card form">
+      {% csrf_token %}
+      {% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}
+      <label>Category {{ form.category }}</label>
+      {% if form.category.errors %}<div class="field-error">{{ form.category.errors }}</div>{% endif %}
+      <label>Quantity {{ form.quantity }}</label>
+      {% if form.quantity.errors %}<div class="field-error">{{ form.quantity.errors }}</div>{% endif %}
+      <label>Estimated weight (kg) {{ form.estimated_weight }}</label>
+      {% if form.estimated_weight.errors %}<div class="field-error">{{ form.estimated_weight.errors }}</div>{% endif %}
+      <label>Condition {{ form.condition }}</label>
+      {% if form.condition.errors %}<div class="field-error">{{ form.condition.errors }}</div>{% endif %}
+      <label>Description {{ form.description }}</label>
+      {% if form.description.errors %}<div class="field-error">{{ form.description.errors }}</div>{% endif %}
+      <button type="submit" class="btn btn-primary btn-block">Submit E-Waste</button>
+    </form>
+  </div>
+</section>
+{% endblock %}

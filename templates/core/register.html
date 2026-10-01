@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Register — ReCircuit{% endblock %}
+{% block content %}
+<section class="section">
+  <div class="container narrow">
+    <h2>Create your account</h2>
+    <p class="muted">Register with a unique username and email. Your password is hashed by Django — never stored in plain text.</p>
+    <form method="post" class="card form">
+      {% csrf_token %}
+      {% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}
+      <label>Username {{ form.username }}</label>
+      {% if form.username.errors %}<div class="field-error">{{ form.username.errors }}</div>{% endif %}
+      <label>Email {{ form.email }}</label>
+      {% if form.email.errors %}<div class="field-error">{{ form.email.errors }}</div>{% endif %}
+      <label>Password {{ form.password1 }}</label>
+      {% if form.password1.errors %}<div class="field-error">{{ form.password1.errors }}</div>{% endif %}
+      <label>Confirm password {{ form.password2 }}</label>
+      {% if form.password2.errors %}<div class="field-error">{{ form.password2.errors }}</div>{% endif %}
+      <h3 class="form-sub">Profile (optional)</h3>
+      <label>Full name {{ profile_form.full_name }}</label>
+      <label>Phone {{ profile_form.phone }}</label>
+      <label>City {{ profile_form.city }}</label>
+      <label>Address {{ profile_form.address }}</label>
+      <button type="submit" class="btn btn-primary btn-block">Register</button>
+      <p class="muted small">Already have an account? <a href="{% url 'login' %}">Login</a></p>
+    </form>
+  </div>
+</section>
+{% endblock %}

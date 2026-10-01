@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}My E-Waste — ReCircuit{% endblock %}
+{% block content %}
+<section class="section">
+  <div class="container">
+    <div class="dash-head">
+      <div><h2>My e-waste</h2><p class="muted">Only your own submissions — other users' data is never shown here.</p></div>
+      <a href="{% url 'submit-ewaste' %}" class="btn btn-primary">+ New submission</a>
+    </div>
+    <div class="card">
+      {% if submissions %}
+      <table class="table">
+        <tr><th>ID</th><th>Category</th><th>Qty</th><th>Weight</th><th>Condition</th><th>Status</th><th>Date</th></tr>
+        {% for s in submissions %}
+        <tr>
+          <td>EW-{{ s.pk|stringformat:"04d" }}</td>
+          <td>{{ s.get_category_display }}</td>
+          <td>{{ s.quantity }}</td>
+          <td>{{ s.estimated_weight }} kg</td>
+          <td>{{ s.get_condition_display }}</td>
+          <td><span class="status status-{{ s.status }}">{{ s.get_status_display }}</span></td>
+          <td>{{ s.created_at|date:"d M Y" }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+      {% else %}
+      <div class="empty">You haven't submitted any e-waste yet. <a href="{% url 'submit-ewaste' %}">Submit now</a>.</div>
+      {% endif %}
+    </div>
+  </div>
+</section>
+{% endblock %}
