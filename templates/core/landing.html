@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+{% block title %}ReCircuit — Smart E-Waste Collection, Monitoring & Recycling{% endblock %}
+
+{% block content %}
+<!-- HERO -->
+<section class="hero">
+  <div class="container hero-grid">
+    <div>
+      <p class="pill">● IoT-powered e-waste platform</p>
+      <h1>Track. Collect.<br /><span class="accent">Recycle.</span></h1>
+      <p class="lead">
+        ReCircuit connects citizens, smart e-waste bins, collection teams and
+        recycling facilities in one live web platform — from doorstep pickup
+        requests to ESP32 bin telemetry.
+      </p>
+      <div class="hero-actions">
+        <a href="#cta" class="btn btn-primary">Submit e-waste</a>
+        <a href="#bins" class="btn btn-outline">See smart bins</a>
+      </div>
+      <div class="hero-meta">
+        <span class="dot dot-live"></span>
+        <span id="hero-live-label">Connecting to live backend…</span>
+      </div>
+    </div>
+    <div class="hero-card">
+      <div class="hero-card-head">
+        <span>ECO-BIN-001</span>
+        <span class="badge" id="hero-bin-badge">SIMULATED</span>
+      </div>
+      <div class="fill-ring">
+        <div class="fill-ring-track">
+          <div class="fill-ring-fill" id="hero-fill-bar" style="width: 0%"></div>
+        </div>
+        <div class="fill-numbers">
+          <strong id="hero-fill">—</strong><span>fill level</span>
+        </div>
+      </div>
+      <dl class="hero-specs">
+        <div><dt>Weight</dt><dd id="hero-weight">—</dd></div>
+        <div><dt>Temperature</dt><dd id="hero-temp">—</dd></div>
+        <div><dt>Status</dt><dd id="hero-status">—</dd></div>
+      </dl>
+      <p class="muted small">Live values load from <code>/api/dashboard/stats/</code>. Real device data is always labelled REAL; demo data is labelled SIMULATED.</p>
+    </div>
+  </div>
+</section>
+
+<!-- LIVE STATS -->
+<section class="section" id="stats">
+  <div class="container">
+    <h2>Live impact</h2>
+    <p class="muted">Every number below is queried from the database — no hardcoded statistics.</p>
+    <div class="stat-grid" id="stat-grid">
+      <div class="stat"><span class="stat-value" data-stat="total_ewaste_kg">—</span><span class="stat-label">kg e-waste tracked</span></div>
+      <div class="stat"><span class="stat-value" data-stat="total_bins">—</span><span class="stat-label">smart bins</span></div>
+      <div class="stat"><span class="stat-value" data-stat="online_bins">—</span><span class="stat-label">bins online</span></div>
+      <div class="stat"><span class="stat-value" data-stat="full_bins">—</span><span class="stat-label">bins needing collection</span></div>
+      <div class="stat"><span class="stat-value" data-stat="pending_pickups">—</span><span class="stat-label">pending pickups</span></div>
+      <div class="stat"><span class="stat-value" data-stat="total_users">—</span><span class="stat-label">registered users</span></div>
+    </div>
+    <p class="muted small" id="stats-status">Loading live statistics…</p>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="section section-alt" id="how">
+  <div class="container">
+    <h2>How it works</h2>
+    <div class="steps">
+      <div class="step"><span class="step-n">1</span><h3>Submit</h3><p>Users declare phones, laptops, batteries, chargers, cables and monitors for recycling.</p></div>
+      <div class="step"><span class="step-n">2</span><h3>Collect</h3><p>Doorstep pickups move Pending → Assigned → In Transit → Collected → Processing → Recycled.</p></div>
+      <div class="step"><span class="step-n">3</span><h3>Monitor</h3><p>ESP32 bins report fill, weight and temperature. 0–59% Normal · 60–79% Warning · 80–100% Collection Required.</p></div>
+      <div class="step"><span class="step-n">4</span><h3>Recycle</h3><p>Facilities log recyclable, reusable, hazardous and residual fractions with completion dates.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- WHY -->
+<section class="section" id="why">
+  <div class="container two-col">
+    <div>
+      <h2>Why e-waste management matters</h2>
+      <p>E-waste is the fastest-growing waste stream in the world. A single phone battery can contaminate soil and water for decades — but the same devices contain copper, gold, aluminium and rare plastics that can be recovered.</p>
+      <ul class="ticks">
+        <li>Hazardous materials (lead, mercury, lithium) need safe handling</li>
+        <li>Doorstep pickup removes friction for citizens</li>
+        <li>Smart bins prevent overflowing collection points</li>
+        <li>Recycling records prove material actually gets recovered</li>
+      </ul>
+    </div>
+    <div class="panel">
+      <h3>System architecture</h3>
+      <pre class="arch">ESP32 → REST API → Django → DB → Dashboard
+Users → Website → Django API → DB
+Admin → Dashboard → Django API → DB</pre>
+      <p class="muted small">Simple polling first; WebSockets only if the core is stable.</p>
+    </div>
+  </div>
+</section>
+
+<!-- BINS -->
+<section class="section section-alt" id="bins">
+  <div class="container">
+    <h2>Smart bins</h2>
+    <p class="muted">Each bin has a unique ID (e.g. ECO-BIN-001), location, fill %, weight, temperature, online status and last-seen timestamp.</p>
+    <div class="panel">
+      <code>POST /api/telemetry/ &nbsp;→&nbsp; {"device_id": "ECO-BIN-001", "fill_level": 82, "weight": 18.4, "temperature": 29.5}</code>
+      <p class="muted small">Telemetry API + live bin dashboard arrive on Day 4. Simulation mode (<code>POST /api/telemetry/simulate/</code>) arrives Day 5 and is always labelled SIMULATED.</p>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="section cta" id="cta">
+  <div class="container cta-inner">
+    <h2>Ready to recirculate your e-waste?</h2>
+    <p>User registration, dashboards and pickup requests go live on Day 2–3. Today: explore the API and admin.</p>
+    <div class="hero-actions">
+      <a href="/api/dashboard/stats/" class="btn btn-primary">View live stats API</a>
+      <a href="/admin/" class="btn btn-outline">Open admin</a>
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // Day-1 live wiring: fetch real DB stats, never hardcode.
+  (async function () {
+    const statusEl = document.getElementById('stats-status');
+    const heroLabel = document.getElementById('hero-live-label');
+    try {
+      const res = await fetch('/api/dashboard/stats/');
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      document.querySelectorAll('[data-stat]').forEach((el) => {
+        const key = el.getAttribute('data-stat');
+        el.textContent = data[key] !== undefined ? data[key] : '—';
+      });
+      statusEl.textContent = 'Live · fetched from /api/dashboard/stats/ just now.';
+      heroLabel.textContent = `${data.total_bins} bin(s) · ${data.online_bins} online · ${data.full_bins} need collection`;
+      // Hero card shows aggregate health (no fake per-bin values on Day 1).
+      document.getElementById('hero-fill').textContent = data.total_bins === 0 ? 'No bins yet' : data.full_bins + ' full';
+      document.getElementById('hero-weight').textContent = data.total_ewaste_kg + ' kg tracked';
+      document.getElementById('hero-temp').textContent = '— (telemetry Day 4)';
+      document.getElementById('hero-status').textContent = data.full_bins > 0 ? 'Collection Required' : 'Normal';
+      document.getElementById('hero-fill-bar').style.width = data.total_bins ? Math.min(100, (data.full_bins / data.total_bins) * 100) + '%' : '0%';
+    } catch (err) {
+      statusEl.textContent = 'Could not reach backend API: ' + err.message;
+      heroLabel.textContent = 'Backend unreachable — is the server running?';
+    }
+  })();
+</script>
+{% endblock %}

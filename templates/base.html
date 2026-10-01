@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}ReCircuit — Track. Collect. Recycle.{% endblock %}</title>
+  <meta name="description" content="ReCircuit — Smart e-waste collection, monitoring and recycling platform." />
+  {% load static %}
+  <link rel="stylesheet" href="{% static 'css/style.css' %}" />
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+  <header class="nav">
+    <div class="container nav-inner">
+      <a class="brand" href="{% url 'landing' %}">
+        <span class="brand-mark" aria-hidden="true">♻</span>
+        <span class="brand-text">Re<strong>Circuit</strong></span>
+        <span class="brand-tag">Track. Collect. Recycle.</span>
+      </a>
+      <nav class="nav-links">
+        <a href="#how">How it works</a>
+        <a href="#why">Why e-waste</a>
+        <a href="#bins">Smart bins</a>
+        <a href="#stats">Live impact</a>
+        <a href="/admin/" class="btn btn-ghost">Admin</a>
+        <a href="#cta" class="btn btn-primary">Get started</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="footer">
+    <div class="container footer-inner">
+      <div>
+        <div class="brand-text">Re<strong>Circuit</strong></div>
+        <p class="muted">Smart e-waste collection, monitoring &amp; recycling.</p>
+      </div>
+      <div class="muted small">Day 1 build — Django + SQLite + REST API · All stats are live from the database.</div>
+    </div>
+  </footer>
+
+  <script src="{% static 'js/main.js' %}"></script>
+  {% block extra_js %}{% endblock %}
+</body>
+</html>
