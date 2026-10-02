@@ -1,20 +1,39 @@
 """
-ReCircuit Django settings — Day 1 foundation.
+ReCircuit Django settings — Day 1 foundation + production-ready env strategy.
 
-Keep it simple and student-friendly:
-- SQLite for development (easy migrate to PostgreSQL later: just swap DATABASES)
-- Templates in /templates, static in /static
-- DRF enabled for REST APIs
+Local development (no env vars set): behaves exactly as before —
+SQLite, DEBUG on, localhost hosts. Production (Render) is driven purely
+by environment variables — see .env.example. No secrets live in this file
+beyond the local-dev-only fallback key.
 """
+import os
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = 'django-insecure-recircuit-dev-only-change-in-production'
+# --- Secret key: env in production, dev-only fallback locally. ---
+SECRET_KEY = os.environ.get(
+    'DJANGO_SECRET_KEY',
+    'django-insecure-recircuit-dev-only-change-in-production',
+)
 
-DEBUG = True
+# --- Debug: on by default locally; Render sets DJANGO_DEBUG=False. ---
+DEBUG = os.environ.get('DJANGO_DEBUG', 'True').lower() in ('1', 'true', 'yes')
 
-ALLOWED_HOSTS = ['*']
+if not DEBUG and not os.environ.get('DJANGO_SECRET_KEY'):
+    from django.core.exceptions import ImproperlyConfigured
+    raise ImproperlyConfigured(
+        'DJANGO_SECRET_KEY must be set when DEBUG=False (production).'
+    )
+
+# --- Hosts: explicit env list + Render's external hostname when present. ---
+ALLOWED_HOSTS = [
+    h.strip() for h in os.environ.get(
+        'DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1,[::1]').split(',')
+    if h.strip()
+]
+if os.environ.get('RENDER_EXTERNAL_HOSTNAME'):
+    ALLOWED_HOSTS.append(os.environ['RENDER_EXTERNAL_HOSTNAME'])
 
 
 INSTALLED_APPS = [
@@ -34,6 +53,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -64,14 +84,19 @@ WSGI_APPLICATION = 'config.wsgi.application'
 ASGI_APPLICATION = 'config.asgi.application'
 
 
-# Database — SQLite for dev. To move to PostgreSQL later, replace this dict
-# with the psycopg2/postgres config (no model changes needed).
+# Database — SQLite locally. In production Render injects DATABASE_URL
+# (PostgreSQL) and we switch to it automatically; local dev is untouched.
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
+if os.environ.get('DATABASE_URL'):
+    import dj_database_url
+    DATABASES = {
+        'default': dj_database_url.config(conn_max_age=600, ssl_require=True)
+    }
 
 
 AUTH_PASSWORD_VALIDATORS = [
@@ -86,6 +111,30 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
+
+# Production static files (WhiteNoise + collectstatic into staticfiles/).
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+STORAGES = {
+    'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+    'staticfiles': {
+        'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+    },
+}
+
+# --- Production hardening (only active when DEBUG=False, i.e. Render). ---
+# Render terminates TLS at its proxy and forwards http internally, so trust
+# the X-Forwarded-Proto header; CSRF origins come from env + Render hostname.
+CSRF_TRUSTED_ORIGINS = [
+    o.strip() for o in os.environ.get(
+        'DJANGO_CSRF_TRUSTED_ORIGINS', '').split(',') if o.strip()
+]
+if os.environ.get('RENDER_EXTERNAL_HOSTNAME'):
+    CSRF_TRUSTED_ORIGINS.append(
+        f"https://{os.environ['RENDER_EXTERNAL_HOSTNAME']}")
+if not DEBUG:
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
