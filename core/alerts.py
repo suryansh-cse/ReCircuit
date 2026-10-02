@@ -107,7 +107,7 @@ def check_offline_alert(smart_bin, online_now):
         return None, False
     return _raise(
         smart_bin, Alert.AlertType.DEVICE_OFFLINE, Alert.Severity.WARNING,
-        f'{smart_bin.bin_id} has not sent telemetry recently.',
+        f'{smart_bin.bin_id} is currently unavailable — no recent reading.',
     )
 
 

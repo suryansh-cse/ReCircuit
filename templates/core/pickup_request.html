@@ -4,7 +4,7 @@
 <section class="section">
   <div class="container narrow">
     <h2>Request a pickup</h2>
-    <p class="muted">We collect from your doorstep. New requests always start as <strong>Pending</strong> — our team assigns a collector (Day 6 workflow).</p>
+    <p class="muted">We collect from your doorstep. New requests start as <strong>Pending</strong> — our team assigns a collector, usually within a day.</p>
     <form method="post" class="card form">
       {% csrf_token %}
       {% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}

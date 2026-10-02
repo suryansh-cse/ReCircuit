@@ -34,6 +34,23 @@ def has_active_pickup_task(pickup) -> bool:
     ).exists()
 
 
+def orphan_pickups():
+    """Day 8: PENDING pickups with NO active CollectionTask.
+
+    Root-cause fix companion: the ops dashboard only lists tasks, so these
+    rows were invisible to operations. Returns a queryset (ordered oldest
+    first so the longest-waiting request is handled first).
+    """
+    from waste.models import CollectionTask, PickupRequest
+    tasked_ids = CollectionTask.objects.filter(
+        pickup_request__isnull=False,
+        status__in=CollectionTask.ACTIVE_STATUSES,
+    ).values('pickup_request_id')
+    return PickupRequest.objects.filter(
+        status=PickupRequest.Status.PENDING,
+    ).exclude(pk__in=tasked_ids).select_related('user').order_by('created_at')
+
+
 def ensure_bin_task(smart_bin, alert=None):
     """Create a task for a full bin unless an active one exists.
 

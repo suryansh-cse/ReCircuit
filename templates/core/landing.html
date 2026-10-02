@@ -6,26 +6,26 @@
 <section class="hero">
   <div class="container hero-grid">
     <div>
-      <p class="pill">● IoT-powered e-waste platform</p>
+      <p class="pill">● Live e-waste collection network</p>
       <h1>Track. Collect.<br /><span class="accent">Recycle.</span></h1>
       <p class="lead">
-        ReCircuit connects citizens, smart e-waste bins, collection teams and
-        recycling facilities in one live web platform — from doorstep pickup
-        requests to ESP32 bin telemetry.
+        ReCircuit connects residents, smart e-waste bins, collection teams and
+        recycling facilities in one live platform — from doorstep pickup
+        requests to verified recycling.
       </p>
       <div class="hero-actions">
-        <a href="#cta" class="btn btn-primary">Submit e-waste</a>
-        <a href="#bins" class="btn btn-outline">See smart bins</a>
+        <a href="{% url 'submit-ewaste' %}" class="btn btn-primary">Dispose e-waste</a>
+        <a href="{% url 'bin-map' %}" class="btn btn-outline">Find a smart bin</a>
       </div>
       <div class="hero-meta">
         <span class="dot dot-live"></span>
-        <span id="hero-live-label">Connecting to live backend…</span>
+        <span id="hero-live-label">Checking live bin network…</span>
       </div>
     </div>
     <div class="hero-card">
       <div class="hero-card-head">
-        <span>ECO-BIN-001</span>
-        <span class="badge" id="hero-bin-badge">SIMULATED</span>
+        <span id="hero-bin-id">Smart bin</span>
+        <span class="badge" id="hero-bin-badge">LIVE</span>
       </div>
       <div class="fill-ring">
         <div class="fill-ring-track">
@@ -37,10 +37,10 @@
       </div>
       <dl class="hero-specs">
         <div><dt>Weight</dt><dd id="hero-weight">—</dd></div>
-        <div><dt>Temperature</dt><dd id="hero-temp">—</dd></div>
+        <div><dt>Location</dt><dd id="hero-loc">—</dd></div>
         <div><dt>Status</dt><dd id="hero-status">—</dd></div>
       </dl>
-      <p class="muted small">Live values load from <code>/api/dashboard/stats/</code>. Real device data is always labelled REAL; demo data is labelled SIMULATED.</p>
+      <p class="muted small">Live readings from our collection bins. Bins marked SIMULATED show demo data; REAL bins report live sensor readings.</p>
     </div>
   </div>
 </section>
@@ -49,14 +49,14 @@
 <section class="section" id="stats">
   <div class="container">
     <h2>Live impact</h2>
-    <p class="muted">Every number below is queried from the database — no hardcoded statistics.</p>
+    <p class="muted">Real numbers from collections happening right now.</p>
     <div class="stat-grid" id="stat-grid">
       <div class="stat"><span class="stat-value" data-stat="total_ewaste_kg">—</span><span class="stat-label">kg e-waste tracked</span></div>
       <div class="stat"><span class="stat-value" data-stat="total_bins">—</span><span class="stat-label">smart bins</span></div>
-      <div class="stat"><span class="stat-value" data-stat="online_bins">—</span><span class="stat-label">bins online</span></div>
+      <div class="stat"><span class="stat-value" data-stat="online_bins">—</span><span class="stat-label">bins available</span></div>
       <div class="stat"><span class="stat-value" data-stat="full_bins">—</span><span class="stat-label">bins needing collection</span></div>
       <div class="stat"><span class="stat-value" data-stat="pending_pickups">—</span><span class="stat-label">pending pickups</span></div>
-      <div class="stat"><span class="stat-value" data-stat="total_users">—</span><span class="stat-label">registered users</span></div>
+      <div class="stat"><span class="stat-value" data-stat="recycled_weight">—</span><span class="stat-label">kg recycled</span></div>
     </div>
     <p class="muted small" id="stats-status">Loading live statistics…</p>
   </div>
@@ -67,10 +67,10 @@
   <div class="container">
     <h2>How it works</h2>
     <div class="steps">
-      <div class="step"><span class="step-n">1</span><h3>Submit</h3><p>Users declare phones, laptops, batteries, chargers, cables and monitors for recycling.</p></div>
-      <div class="step"><span class="step-n">2</span><h3>Collect</h3><p>Doorstep pickups move Pending → Assigned → In Transit → Collected → Processing → Recycled.</p></div>
-      <div class="step"><span class="step-n">3</span><h3>Monitor</h3><p>ESP32 bins report fill, weight and temperature. 0–59% Normal · 60–79% Warning · 80–100% Collection Required.</p></div>
-      <div class="step"><span class="step-n">4</span><h3>Recycle</h3><p>Facilities log recyclable, reusable, hazardous and residual fractions with completion dates.</p></div>
+      <div class="step"><span class="step-n">1</span><h3>Dispose</h3><p>Declare phones, laptops, batteries, chargers and cables — at a smart bin or from your doorstep.</p></div>
+      <div class="step"><span class="step-n">2</span><h3>Collect</h3><p>Our collection team picks up your request and bins are emptied before they overflow.</p></div>
+      <div class="step"><span class="step-n">3</span><h3>Track</h3><p>Follow every item from submitted to collected to recycled, with live bin levels on the map.</p></div>
+      <div class="step"><span class="step-n">4</span><h3>Recycle</h3><p>Materials are sorted and recovered, and your history proves it happened.</p></div>
     </div>
   </div>
 </section>
@@ -89,11 +89,9 @@
       </ul>
     </div>
     <div class="panel">
-      <h3>System architecture</h3>
-      <pre class="arch">ESP32 → REST API → Django → DB → Dashboard
-Users → Website → Django API → DB
-Admin → Dashboard → Django API → DB</pre>
-      <p class="muted small">Simple polling first; WebSockets only if the core is stable.</p>
+      <h3>One connected platform</h3>
+      <p>Residents dispose and track · Smart bins report live levels · Collectors get assigned jobs · Facilities log recycling — all in one place.</p>
+      <p><a href="{% url 'register' %}" class="btn btn-primary">Get started</a></p>
     </div>
   </div>
 </section>
@@ -101,12 +99,9 @@ Admin → Dashboard → Django API → DB</pre>
 <!-- BINS -->
 <section class="section section-alt" id="bins">
   <div class="container">
-    <h2>Smart bins</h2>
-    <p class="muted">Each bin has a unique ID (e.g. ECO-BIN-001), location, fill %, weight, temperature, online status and last-seen timestamp.</p>
-    <div class="panel">
-      <code>POST /api/telemetry/ &nbsp;→&nbsp; {"device_id": "ECO-BIN-001", "fill_level": 82, "weight": 18.4, "temperature": 29.5}</code>
-      <p class="muted small">Telemetry API + live bin dashboard arrive on Day 4. Simulation mode (<code>POST /api/telemetry/simulate/</code>) arrives Day 5 and is always labelled SIMULATED.</p>
-    </div>
+    <h2>Smart bins near you</h2>
+    <p class="muted">Each bin shows live fill level, weight and availability. Find one on the map and scan its QR to dispose.</p>
+    <p><a href="{% url 'bin-map' %}" class="btn btn-primary">Open the bin map</a> <a href="{% url 'bin-list' %}" class="btn btn-outline">Browse all bins</a></p>
   </div>
 </section>
 
@@ -114,10 +109,10 @@ Admin → Dashboard → Django API → DB</pre>
 <section class="section cta" id="cta">
   <div class="container cta-inner">
     <h2>Ready to recirculate your e-waste?</h2>
-    <p>User registration, dashboards and pickup requests go live on Day 2–3. Today: explore the API and admin.</p>
+    <p>Create a free account, dispose an item, or request a doorstep pickup.</p>
     <div class="hero-actions">
-      <a href="/api/dashboard/stats/" class="btn btn-primary">View live stats API</a>
-      <a href="/admin/" class="btn btn-outline">Open admin</a>
+      <a href="{% url 'register' %}" class="btn btn-primary">Create account</a>
+      <a href="{% url 'pickup-request' %}" class="btn btn-outline">Request a pickup</a>
     </div>
   </div>
 </section>
@@ -125,29 +120,38 @@ Admin → Dashboard → Django API → DB</pre>
 
 {% block extra_js %}
 <script>
-  // Day-1 live wiring: fetch real DB stats, never hardcode.
+  // Live wiring: real numbers only; friendly messages on failure.
   (async function () {
     const statusEl = document.getElementById('stats-status');
     const heroLabel = document.getElementById('hero-live-label');
     try {
-      const res = await fetch('/api/dashboard/stats/');
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const data = await res.json();
+      const [statsRes, binsRes] = await Promise.all([
+        fetch('/api/dashboard/stats/'), fetch('/api/bins/'),
+      ]);
+      if (!statsRes.ok || !binsRes.ok) throw new Error('unavailable');
+      const data = await statsRes.json();
+      const bins = await binsRes.json();
       document.querySelectorAll('[data-stat]').forEach((el) => {
         const key = el.getAttribute('data-stat');
         el.textContent = data[key] !== undefined ? data[key] : '—';
       });
-      statusEl.textContent = 'Live · fetched from /api/dashboard/stats/ just now.';
-      heroLabel.textContent = `${data.total_bins} bin(s) · ${data.online_bins} online · ${data.full_bins} need collection`;
-      // Hero card shows aggregate health (no fake per-bin values on Day 1).
-      document.getElementById('hero-fill').textContent = data.total_bins === 0 ? 'No bins yet' : data.full_bins + ' full';
-      document.getElementById('hero-weight').textContent = data.total_ewaste_kg + ' kg tracked';
-      document.getElementById('hero-temp').textContent = '— (telemetry Day 4)';
-      document.getElementById('hero-status').textContent = data.full_bins > 0 ? 'Collection Required' : 'Normal';
-      document.getElementById('hero-fill-bar').style.width = data.total_bins ? Math.min(100, (data.full_bins / data.total_bins) * 100) + '%' : '0%';
+      statusEl.textContent = 'Updated just now.';
+      heroLabel.textContent = `${data.total_bins} bin(s) · ${data.online_bins} available · ${data.full_bins} need collection`;
+      const b = bins[0];
+      if (b) {
+        document.getElementById('hero-bin-id').textContent = b.bin_id;
+        document.getElementById('hero-bin-badge').textContent = b.data_source === 'real' ? 'REAL' : 'SIMULATED';
+        document.getElementById('hero-fill').textContent = b.fill_level + '%';
+        document.getElementById('hero-weight').textContent = b.weight + ' kg';
+        document.getElementById('hero-loc').textContent = b.location;
+        document.getElementById('hero-status').textContent = b.fill_status;
+        document.getElementById('hero-fill-bar').style.width = Math.min(100, b.fill_level) + '%';
+      } else {
+        document.getElementById('hero-fill').textContent = 'No bins yet';
+      }
     } catch (err) {
-      statusEl.textContent = 'Could not reach backend API: ' + err.message;
-      heroLabel.textContent = 'Backend unreachable — is the server running?';
+      statusEl.textContent = "We couldn't load the latest data. Please try again.";
+      heroLabel.textContent = 'Live data is temporarily unavailable.';
     }
   })();
 </script>

@@ -1,12 +1,12 @@
 {% extends "base.html" %}
-{% block title %}Pickup #{{ pickup.pk }} — ReCircuit{% endblock %}
+{% block title %}Pickup {{ pickup.display_id }} — ReCircuit{% endblock %}
 {% block content %}
 <section class="section">
   <div class="container narrow">
     <p><a href="{% url 'pickup-my' %}">← My pickups</a></p>
     <div class="card">
       <div class="dash-head">
-        <h2>Pickup #{{ pickup.pk }}</h2>
+        <h2>Pickup {{ pickup.display_id }}</h2>
         <span class="status status-{{ pickup.status }}">{{ pickup.get_status_display }}</span>
       </div>
       {% if pickup.status == 'cancelled' %}
@@ -21,20 +21,19 @@
       </ol>
       {% endif %}
       <dl class="specs">
+        <div><dt>Item</dt><dd>{{ pickup.get_e_waste_category_display }} · {{ pickup.estimated_weight }} kg</dd></div>
         <div><dt>Address</dt><dd>{{ pickup.pickup_address }}, {{ pickup.city }}</dd></div>
-        <div><dt>Category</dt><dd>{{ pickup.get_e_waste_category_display }}</dd></div>
-        <div><dt>Estimated weight</dt><dd>{{ pickup.estimated_weight }} kg</dd></div>
-        <div><dt>Preferred slot</dt><dd>{{ pickup.preferred_date|date:"d M Y" }} · {{ pickup.preferred_time }}</dd></div>
+        <div><dt>Scheduled</dt><dd>{{ pickup.preferred_date|date:"d M Y" }} · {{ pickup.preferred_time }}</dd></div>
         {% if pickup.additional_notes %}<div><dt>Notes</dt><dd>{{ pickup.additional_notes }}</dd></div>{% endif %}
         <div><dt>Requested</dt><dd>{{ pickup.created_at|date:"d M Y, H:i" }}</dd></div>
-        <div><dt>Last updated</dt><dd>{{ pickup.updated_at|date:"d M Y, H:i" }}</dd></div>
         {% if collection_task %}
-        <div><dt>Collection task</dt><dd><span class="status status-{{ collection_task.status }}">{{ collection_task.get_status_display }}</span>{% if collection_task.assigned_to %} · {{ collection_task.assigned_to.username }}{% endif %}</dd></div>
+        <div><dt>Collection</dt><dd><span class="status status-{{ collection_task.status }}">{{ collection_task.get_status_display }}</span></dd></div>
+        {% if collection_task.assigned_to %}<div><dt>Collector</dt><dd>Assigned</dd></div>{% endif %}
         {% if collection_task.started_at %}<div><dt>Started</dt><dd>{{ collection_task.started_at|date:"d M Y, H:i" }}</dd></div>{% endif %}
         {% if collection_task.completed_at %}<div><dt>Collected</dt><dd>{{ collection_task.completed_at|date:"d M Y, H:i" }}</dd></div>{% endif %}
         {% endif %}
       </dl>
-      <p class="muted small">Status changes are made by the admin/collection team — users cannot modify status themselves.</p>
+      <p class="muted small">Our collection team updates this page as your pickup moves along.</p>
     </div>
   </div>
 </section>

@@ -91,7 +91,7 @@ class Alert(models.Model):
 
     class AlertType(models.TextChoices):
         FILL_LEVEL = 'fill_level', 'Fill Level (80%+)'
-        DEVICE_OFFLINE = 'device_offline', 'Device Offline'
+        DEVICE_OFFLINE = 'device_offline', 'Bin Unavailable'
         HIGH_TEMPERATURE = 'high_temperature', 'High Temperature'
         SYSTEM = 'system', 'System'
 

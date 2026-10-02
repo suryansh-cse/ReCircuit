@@ -26,10 +26,10 @@
         <div class="stat"><span class="stat-value" id="live-temp">{% if bin.temperature != None %}{{ bin.temperature }}°C{% else %}—{% endif %}</span><span class="stat-label">temperature</span></div>
         <div class="stat"><span class="stat-value" id="live-online">{% if bin.is_online %}🟢{% else %}🔴{% endif %}</span><span class="stat-label" id="live-seen">{% if bin.is_online %}online{% else %}offline{% endif %} · seen {{ bin.last_seen|date:"d M H:i"|default:"never" }}</span></div>
       </div>
-      <p class="muted small">Coordinates: {{ bin.latitude }}, {{ bin.longitude }} · Live — auto-refreshes from <code>/api/bins/{{ bin.bin_id }}/</code> every 10 s · <span id="live-note">waiting for refresh…</span></p>
+      <p class="muted small">{{ bin.location }}{% if bin.city %} · {{ bin.city }}{% endif %} · Live — updates automatically · <span id="live-note">waiting for refresh…</span></p>
     </div>
     <div class="card">
-      <h3>Recent telemetry</h3>
+      <h3>Recent readings</h3>
       {% if recent_telemetry %}
       <table class="table">
         <tr><th>Time</th><th>Fill</th><th>Weight</th><th>Temp</th><th>Source</th></tr>
@@ -44,11 +44,11 @@
         {% endfor %}
       </table>
       {% else %}
-      <div class="empty">No telemetry records yet. Readings posted by the ESP32 API (Day 4) or added in admin will appear here — no fake chart data.</div>
+      <div class="empty">No readings yet — they appear here as soon as this bin reports.</div>
       {% endif %}
     </div>
     <div class="card">
-      <h3>History (last 50 readings, real database rows)</h3>
+      <h3>Level history (last 50 readings)</h3>
       <div id="charts-empty" class="empty" hidden>No telemetry history available yet.</div>
       <div class="chart-grid">
         <div><h4>Fill level %</h4><canvas id="ch-fill" height="140"></canvas></div>

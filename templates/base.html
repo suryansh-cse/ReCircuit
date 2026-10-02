@@ -12,33 +12,48 @@
 <body>
   <header class="nav">
     <div class="container nav-inner">
-      <a class="brand" href="{% url 'landing' %}">
+      <a class="brand" href="{% if is_ops_staff %}{% url 'collections-ops' %}{% elif is_collector_user %}{% url 'my-tasks' %}{% elif user.is_authenticated %}{% url 'dashboard' %}{% else %}{% url 'landing' %}{% endif %}">
         <span class="brand-mark" aria-hidden="true">♻</span>
-        <span class="brand-text">Re<strong>Circuit</strong></span>
+        <span class="brand-text">Re<strong>Circuit</strong>{% if is_ops_staff %} <span class="brand-ops">Operations</span>{% endif %}</span>
         <span class="brand-tag">Track. Collect. Recycle.</span>
       </a>
-      <nav class="nav-links">
-        {% if user.is_authenticated %}
-          <a href="{% url 'dashboard' %}">Dashboard</a>
-          <a href="{% url 'my-ewaste' %}">My E-Waste</a>
-          <a href="{% url 'pickup-request' %}">Schedule Pickup</a>
-          <a href="{% url 'pickup-my' %}">My Pickups</a>
+      <button class="nav-toggle" type="button" aria-label="Menu" aria-expanded="false" aria-controls="site-nav">☰</button>
+      <nav class="nav-links" id="site-nav">
+        {% if is_ops_staff %}
+          <a href="{% url 'collections-ops' %}">Dashboard</a>
+          <a href="{% url 'collections-ops' %}#pickups">Pickups</a>
+          <a href="{% url 'collections-ops' %}#tasks">Tasks</a>
           <a href="{% url 'bin-list' %}">Smart Bins</a>
-          <a href="{% url 'bin-map' %}">Map</a>
           <a href="{% url 'alert-list' %}">Alerts{% if active_alert_count %} ({{ active_alert_count }}){% endif %}</a>
-          {% if is_ops_staff %}<a href="{% url 'collections-ops' %}">Operations</a>{% endif %}
-          {% if is_ops_staff %}<a href="{% url 'recycling-dash' %}">Recycling</a>{% endif %}
-          {% if is_collector_user %}<a href="{% url 'my-tasks' %}">My Tasks{% if my_active_tasks %} ({{ my_active_tasks }}){% endif %}</a>{% endif %}
-          <a href="{% url 'profile' %}" class="nav-user">{{ user.username }}</a>
-          <a href="{% url 'logout' %}" class="btn btn-ghost">Logout</a>
+          <a href="{% url 'recycling-dash' %}">Recycling</a>
+          <a href="{% url 'collectors-manage' %}">Team</a>
+          <span class="nav-right"><a href="{% url 'profile' %}" class="nav-user">{{ user.username }}</a><a href="{% url 'logout' %}" class="btn btn-ghost">Logout</a></span>
+        {% elif is_collector_user %}
+          <a href="{% url 'my-tasks' %}">Dashboard</a>
+          <a href="{% url 'my-tasks' %}">My Tasks{% if my_active_tasks %} ({{ my_active_tasks }}){% endif %}</a>
+          <a href="{% url 'my-tasks' %}#history">History</a>
+          <span class="nav-right"><a href="{% url 'profile' %}" class="nav-user">{{ user.username }}</a><a href="{% url 'logout' %}" class="btn btn-ghost">Logout</a></span>
+        {% elif user.is_authenticated %}
+          <a href="{% url 'dashboard' %}">Dashboard</a>
+          <a href="{% url 'submit-ewaste' %}">Dispose E-Waste</a>
+          <a href="{% url 'bin-map' %}">Find a Bin</a>
+          <a href="{% url 'pickup-request' %}">Request Pickup</a>
+          <a href="{% url 'my-ewaste' %}">My E-Waste</a>
+          <span class="nav-drop">
+            <button class="nav-drop-btn" type="button" aria-haspopup="true" aria-expanded="false">My Activity ▾</button>
+            <span class="nav-drop-menu">
+              <a href="{% url 'my-ewaste' %}">My Submissions</a>
+              <a href="{% url 'pickup-my' %}">My Pickups</a>
+              <a href="{% url 'profile' %}">Profile</a>
+            </span>
+          </span>
+          <span class="nav-right"><a href="{% url 'profile' %}" class="nav-user">{{ user.username }}</a><a href="{% url 'logout' %}" class="btn btn-ghost">Logout</a></span>
         {% else %}
-          <a href="{% url 'landing' %}#how">How it works</a>
-          <a href="{% url 'bin-list' %}">Smart bins</a>
-          <a href="{% url 'bin-map' %}">Map</a>
-          <a href="{% url 'alert-list' %}">Alerts{% if active_alert_count %} ({{ active_alert_count }}){% endif %}</a>
-          <a href="{% url 'landing' %}#stats">Live impact</a>
-          <a href="{% url 'login' %}">Login</a>
-          <a href="{% url 'register' %}" class="btn btn-primary">Get started</a>
+          <a href="{% url 'landing' %}">Home</a>
+          <a href="{% url 'landing' %}#how">How It Works</a>
+          <a href="{% url 'bin-list' %}">Smart Bins</a>
+          <a href="{% url 'landing' %}#why">About</a>
+          <span class="nav-right"><a href="{% url 'login' %}">Login</a><a href="{% url 'register' %}" class="btn btn-primary">Register</a></span>
         {% endif %}
       </nav>
     </div>
@@ -62,7 +77,7 @@
         <div class="brand-text">Re<strong>Circuit</strong></div>
         <p class="muted">Smart e-waste collection, monitoring &amp; recycling.</p>
       </div>
-      <div class="muted small">Day 1 build — Django + SQLite + REST API · All stats are live from the database.</div>
+      <div class="muted small">Track. Collect. Recycle.</div>
     </div>
   </footer>
 

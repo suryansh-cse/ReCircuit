@@ -1,14 +1,14 @@
 {% extends "base.html" %}
-{% block title %}Alerts — ReCircuit{% endblock %}
+{% block title %}Bin Alerts — ReCircuit{% endblock %}
 {% block content %}
 <section class="section">
   <div class="container">
     <div class="dash-head">
-      <div><h2>Alerts</h2>
+      <div><h2>Bin alerts</h2>
         {% if active_alert_count == 0 %}
-        <p class="muted">✅ All systems normal — no active alerts.</p>
+        <p class="muted">✅ All bins are healthy — nothing needs attention.</p>
         {% else %}
-        <p class="muted">{{ active_alert_count }} active ({{ active_critical_count }} critical). Numbers from the database, never hardcoded.</p>
+        <p class="muted">{{ active_alert_count }} need attention ({{ active_critical_count }} urgent).</p>
         {% endif %}
       </div>
       <div class="hero-actions">

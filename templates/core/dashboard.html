@@ -5,89 +5,72 @@
   <div class="container">
     <div class="dash-head">
       <div>
-        <h2>Hello, {{ user.username }} 👋</h2>
-        <p class="muted">All numbers below come from your own database records — 0 means no data yet, not a placeholder.</p>
+        <h2>Hello, {{ profile.full_name|default:user.username }} 👋</h2>
+        <p class="muted">Here's what's happening with your e-waste.</p>
       </div>
       <div class="hero-actions">
-        <a href="{% url 'submit-ewaste' %}" class="btn btn-primary">Submit E-Waste</a>
-        <a href="{% url 'pickup-request' %}" class="btn btn-outline">Schedule Pickup</a>
-        <a href="{% url 'bin-list' %}" class="btn btn-outline">Find Smart Bins</a>
-        <a href="{% url 'bin-map' %}" class="btn btn-outline">Campus Map</a>
+        <a href="{% url 'submit-ewaste' %}" class="btn btn-primary">Dispose E-Waste</a>
+        <a href="{% url 'pickup-request' %}" class="btn btn-outline">Request Pickup</a>
+        <a href="{% url 'bin-map' %}" class="btn btn-outline">Find Smart Bin</a>
       </div>
     </div>
 
     <div class="stat-grid four">
-      <div class="stat"><span class="stat-value">{{ total_submissions }}</span><span class="stat-label">total submissions</span></div>
-      <div class="stat"><span class="stat-value">{{ total_weight }} kg</span><span class="stat-label">estimated weight</span></div>
-      <div class="stat"><span class="stat-value">{{ pending_pickups }}</span><span class="stat-label">pending pickups</span></div>
-      <div class="stat"><span class="stat-value">{{ active_pickups }}</span><span class="stat-label">active pickups</span></div>
-    </div>
-    <div class="stat-grid four">
-      <div class="stat"><span class="stat-value">{{ completed_pickups }}</span><span class="stat-label">completed pickups</span></div>
-      <div class="stat"><span class="stat-value">{{ recycled_items }}</span><span class="stat-label">recycled items</span></div>
+      <div class="stat"><span class="stat-value">{{ total_submissions }}</span><span class="stat-label">my e-waste</span></div>
+      <div class="stat"><span class="stat-value">{{ pending_pickups|add:active_pickups }}</span><span class="stat-label">my pickups</span></div>
+      <div class="stat"><span class="stat-value">{{ collected_items|add:completed_pickups }}</span><span class="stat-label">collected</span></div>
+      <div class="stat"><span class="stat-value">{{ recycled_items }}</span><span class="stat-label">recycled</span></div>
     </div>
 
     <div class="two-col dash-cols">
       <div class="card">
-        <h3>Recent e-waste submissions</h3>
-        {% if recent_submissions %}
-        <table class="table">
-          <tr><th>ID</th><th>Category</th><th>Qty</th><th>Weight</th><th>Status</th></tr>
-          {% for s in recent_submissions %}
-          <tr>
-            <td>EW-{{ s.pk|stringformat:"04d" }}</td>
-            <td>{{ s.get_category_display }}</td>
-            <td>{{ s.quantity }}</td>
-            <td>{{ s.estimated_weight }} kg</td>
-            <td><span class="status status-{{ s.status }}">{{ s.get_status_display }}</span></td>
-          </tr>
+        <h3>Recent activity</h3>
+        {% if activity %}
+        <ul class="activity-feed">
+          {% for a in activity %}
+          <li class="activity-item">
+            <span class="tracker-dot"></span>
+            <span><a href="{{ a.url }}">{{ a.text }}</a></span>
+            <span class="status status-{{ a.status }}">{{ a.status_display }}</span>
+          </li>
           {% endfor %}
-        </table>
-        <p><a href="{% url 'my-ewaste' %}">View all →</a></p>
+        </ul>
         {% else %}
-        <div class="empty">No submissions yet. <a href="{% url 'submit-ewaste' %}">Submit your first e-waste</a>.</div>
+        <div class="empty">Nothing yet. <a href="{% url 'submit-ewaste' %}">Dispose your first item</a> or <a href="{% url 'pickup-request' %}">request a pickup</a>.</div>
         {% endif %}
       </div>
       <div>
         <div class="card">
-          <h3>Recent pickup requests</h3>
+          <h3>My pickups</h3>
           {% if recent_pickups %}
           <table class="table">
-            <tr><th>ID</th><th>Category</th><th>Status</th><th>Date</th></tr>
+            <tr><th>ID</th><th>Item</th><th>Status</th><th>Scheduled</th></tr>
             {% for p in recent_pickups %}
-            <tr><td><a href="{% url 'pickup-detail' p.pk %}">#{{ p.pk }}</a></td><td>{{ p.get_e_waste_category_display }}</td><td><span class="status status-{{ p.status }}">{{ p.get_status_display }}</span></td><td>{{ p.created_at|date:"d M Y" }}</td></tr>
+            <tr><td><a href="{% url 'pickup-detail' p.pk %}">{{ p.display_id }}</a></td><td>{{ p.get_e_waste_category_display }}</td><td><span class="status status-{{ p.status }}">{{ p.get_status_display }}</span></td><td>{{ p.preferred_date|date:"d M Y" }}</td></tr>
             {% endfor %}
           </table>
-          <p><a href="{% url 'pickup-my' %}">View all →</a></p>
+          <p><a href="{% url 'pickup-my' %}">All my pickups →</a></p>
           {% else %}
-          <div class="empty">No pickups yet. <a href="{% url 'pickup-request' %}">Schedule a pickup</a>.</div>
+          <div class="empty">No pickups yet. <a href="{% url 'pickup-request' %}">Request a pickup</a>.</div>
           {% endif %}
         </div>
         <div class="card">
-          <h3>Recycling status</h3>
+          <h3>Recycling progress</h3>
           {% if status_breakdown %}
           <ul class="status-list">
             {% for row in status_breakdown %}
             <li><span class="status status-{{ row.status }}">{{ row.status|title }}</span> × {{ row.count }}</li>
             {% endfor %}
           </ul>
+          <p><a href="{% url 'my-ewaste' %}">All my e-waste →</a></p>
           {% else %}
           <div class="empty">Nothing in the recycling pipeline yet.</div>
           {% endif %}
         </div>
         <div class="card">
-          <h3>Profile</h3>
-          <p class="muted small">{{ profile.full_name|default:user.username }}{% if profile.city %} · {{ profile.city }}{% endif %}{% if profile.phone %} · {{ profile.phone }}{% endif %}</p>
-        </div>
-        <div class="card">
-          <h3>Smart bins &amp; alerts (live)</h3>
-          <p class="muted small">{{ monitoring.total_bins }} bins · {{ monitoring.online_bins }} online · {{ monitoring.offline_bins }} offline · {{ monitoring.normal_bins }} normal · {{ monitoring.warning_bins }} warning · {{ monitoring.critical_bins }} need collection</p>
-          {% if monitoring.active_alerts %}
-          <p><a href="{% url 'alert-list' %}">⚠ {{ monitoring.active_alerts }} active alert{{ monitoring.active_alerts|pluralize }} ({{ monitoring.critical_alerts }} critical)</a></p>
-          {% else %}
-          <div class="empty">✅ All systems normal — no active alerts.</div>
-          {% endif %}
-          <p><a href="{% url 'bin-list' %}">Open live monitoring →</a></p>
+          <h3>Nearby smart bins</h3>
+          <p class="muted small">{{ monitoring.total_bins }} bins · {{ monitoring.online_bins }} available · {{ monitoring.critical_bins }} full</p>
+          <p><a href="{% url 'bin-map' %}">Open the bin map →</a></p>
         </div>
       </div>
     </div>

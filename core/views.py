@@ -47,10 +47,24 @@ def register_view(request):
     )
 
 
+def _home_for(user):
+    """Day 8: one auth system, role-based landing (backend-enforced).
+
+    USER → user dashboard · COLLECTOR → collector tasks ·
+    ADMIN/SUPERUSER (staff) → operations. Explicit ?next= still wins.
+    """
+    from core.models import is_collector, is_ops_staff
+    if is_ops_staff(user):
+        return 'collections-ops'
+    if is_collector(user):
+        return 'my-tasks'
+    return 'dashboard'
+
+
 def login_view(request):
     """Log in with username + password. Honors ?next= for protected pages."""
     if request.user.is_authenticated:
-        return redirect('dashboard')
+        return redirect(_home_for(request.user))
     if request.method == 'POST':
         form = AuthenticationForm(request, data=request.POST)
         if form.is_valid():
@@ -59,7 +73,8 @@ def login_view(request):
             # Ensure a profile exists for users created via admin/createsuperuser.
             Profile.objects.get_or_create(user=user)
             messages.success(request, f'Welcome back, {user.username}!')
-            return redirect(request.POST.get('next') or request.GET.get('next') or 'dashboard')
+            nxt = request.POST.get('next') or request.GET.get('next')
+            return redirect(nxt or _home_for(user))
     else:
         form = AuthenticationForm()
     return render(request, 'core/login.html', {'form': form})
@@ -77,7 +92,15 @@ def logout_view(request):
 
 @login_required
 def dashboard(request):
-    """User dashboard — every number comes from this user's own DB rows."""
+    """User dashboard — every number comes from this user's own DB rows.
+
+    Day 8: staff/collectors landing here directly are routed to their own
+    home (same rule as login). Everyone else gets stats + a unified
+    Recent Activity feed (submissions + pickups, newest first).
+    """
+    home = _home_for(request.user)
+    if home != 'dashboard':
+        return redirect(home)
     Profile.objects.get_or_create(user=request.user)
     submissions = EwasteSubmission.objects.filter(user=request.user)
     pickups = PickupRequest.objects.filter(user=request.user)
@@ -91,6 +114,7 @@ def dashboard(request):
     ]).count()
     completed_pickups = pickups.filter(status=PickupRequest.Status.RECYCLED).count()
     recycled_items = submissions.filter(status='recycled').count()
+    collected_items = submissions.filter(status='collected').count()
 
     status_breakdown = list(
         submissions.values('status').annotate(count=Count('id')).order_by('status')
@@ -99,6 +123,36 @@ def dashboard(request):
     recent_pickups = pickups.order_by('-created_at')[:5]
     from .alerts import monitoring_summary
 
+    # Unified activity feed: friendly verbs, links, newest first (max 8).
+    activity = [
+        {'when': s.created_at, 'kind': 'submission',
+         'text': f'{s.get_category_display()} submitted',
+         'url': '/my-ewaste/', 'status': s.status,
+         'status_display': s.get_status_display()}
+        for s in submissions.order_by('-created_at')[:8]
+    ] + [
+        {'when': p.created_at, 'kind': 'pickup',
+         'text': f'Pickup {p.display_id} requested ({p.get_e_waste_category_display()})',
+         'url': f'/pickup/{p.pk}/', 'status': p.status,
+         'status_display': p.get_status_display()}
+        for p in pickups.order_by('-created_at')[:8]
+    ]
+    # Lifecycle progress also surfaces as activity (status != initial).
+    for s in submissions.exclude(status='submitted').order_by('-updated_at')[:4]:
+        activity.append({
+            'when': s.updated_at, 'kind': 'progress',
+            'text': f'{s.get_category_display()} {s.get_status_display().lower()}',
+            'url': '/my-ewaste/', 'status': s.status,
+            'status_display': s.get_status_display()})
+    for p in pickups.exclude(status__in=('pending', 'cancelled')).order_by('-updated_at')[:4]:
+        activity.append({
+            'when': p.updated_at, 'kind': 'progress',
+            'text': f'Pickup {p.display_id} {p.get_status_display().lower()}',
+            'url': f'/pickup/{p.pk}/', 'status': p.status,
+            'status_display': p.get_status_display()})
+    activity.sort(key=lambda a: a['when'], reverse=True)
+    activity = activity[:8]
+
     return render(request, 'core/dashboard.html', {
         'total_submissions': total_submissions,
         'total_weight': round(total_weight, 2),
@@ -106,9 +160,11 @@ def dashboard(request):
         'active_pickups': active_pickups,
         'completed_pickups': completed_pickups,
         'recycled_items': recycled_items,
+        'collected_items': collected_items,
         'status_breakdown': status_breakdown,
         'recent_submissions': recent_submissions,
         'recent_pickups': recent_pickups,
+        'activity': activity,
         'profile': request.user.profile,
         'monitoring': monitoring_summary(),
     })
@@ -243,15 +299,21 @@ def pickup_request_view(request):
             pickup.save()
             # Day 6: every pickup gets exactly one active CollectionTask
             # (dedupe inside ensure_pickup_task) so ops + collectors share
-            # the same workflow as smart-bin alerts.
+            # the same workflow as smart-bin alerts. Logged, never fatal:
+            # the pickup itself must survive even if task creation hiccups
+            # (orphans are surfaced in Operations + backfillable via
+            # `manage.py backfill_pickup_tasks`).
             try:
                 from waste.collections import ensure_pickup_task
                 ensure_pickup_task(pickup)
             except Exception:
-                pass
+                import logging
+                logging.getLogger(__name__).exception(
+                    'ensure_pickup_task failed for pickup #%s', pickup.pk)
             messages.success(
                 request,
-                f'Pickup requested! ID #{pickup.pk} is now Pending.',
+                f'Pickup request {pickup.display_id} submitted successfully — '
+                'status: Pending. Our team will assign a collector soon.',
             )
             return redirect('pickup-detail', pk=pickup.pk)
     else:

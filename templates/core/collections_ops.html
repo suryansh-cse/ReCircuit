@@ -1,26 +1,134 @@
 {% extends "base.html" %}
-{% block title %}Collection Operations — ReCircuit{% endblock %}
+{% block title %}Operations Control Center — ReCircuit{% endblock %}
 {% block content %}
 <section class="section">
   <div class="container">
     <div class="dash-head">
-      <div><h2>Collection operations</h2><p class="muted">Smart-bin alerts and user pickups converge here into one task queue.</p></div>
+      <div><h2>Operations control center</h2><p class="muted">Every pickup, task, bin, alert and submission — live from the database.</p></div>
       <div class="hero-actions">
-        <a href="{% url 'collectors-manage' %}" class="btn btn-outline">Collectors</a>
+        <a href="{% url 'collectors-manage' %}" class="btn btn-outline">Team</a>
+        <a href="{% url 'recycling-dash' %}" class="btn btn-outline">Recycling</a>
         <a href="{% url 'alert-list' %}" class="btn btn-outline">Alerts</a>
       </div>
     </div>
 
     <div class="stat-grid six">
-      <div class="stat"><span class="stat-value">{{ stats.total }}</span><span class="stat-label">total tasks</span></div>
-      <div class="stat"><span class="stat-value">{{ stats.pending }}</span><span class="stat-label">pending</span></div>
-      <div class="stat"><span class="stat-value">{{ stats.assigned }}</span><span class="stat-label">assigned</span></div>
+      <div class="stat"><span class="stat-value">{{ control_stats.total_pickups }}</span><span class="stat-label">total pickups</span></div>
+      <div class="stat"><span class="stat-value">{{ control_stats.pending_pickups }}</span><span class="stat-label">pending pickups</span></div>
+      <div class="stat"><span class="stat-value">{{ control_stats.active_collections }}</span><span class="stat-label">active collections</span></div>
+      <div class="stat"><span class="stat-value">{{ control_stats.bins_needing }}</span><span class="stat-label">bins needing collection</span></div>
+      <div class="stat"><span class="stat-value">{{ control_stats.active_alerts }}</span><span class="stat-label">active alerts</span></div>
+      <div class="stat"><span class="stat-value">{{ control_stats.total_ewaste }} kg</span><span class="stat-label">total e-waste</span></div>
+    </div>
+    <div class="stat-grid four">
+      <div class="stat"><span class="stat-value">{{ control_stats.recycled_weight }} kg</span><span class="stat-label">recycled weight</span></div>
+      <div class="stat"><span class="stat-value">{{ stats.pending }}</span><span class="stat-label">unassigned tasks</span></div>
       <div class="stat"><span class="stat-value">{{ stats.in_transit }}</span><span class="stat-label">in transit</span></div>
       <div class="stat"><span class="stat-value">{{ stats.collected }}</span><span class="stat-label">collected</span></div>
-      <div class="stat"><span class="stat-value">{{ stats.cancelled }}</span><span class="stat-label">cancelled</span></div>
+    </div>
+
+    {% if orphans %}
+    <div class="card card-warn">
+      <h3>Pickup requests waiting for a task ({{ orphans|length }})</h3>
+      <p class="muted small">These requests have no collection task yet — create one so a collector can act on them.</p>
+      <table class="table">
+        <tr><th>Request</th><th>User</th><th>Item</th><th>Address</th><th>Requested</th><th></th></tr>
+        {% for p in orphans %}
+        <tr>
+          <td>{{ p.display_id }}</td>
+          <td>{{ p.user.username }}</td>
+          <td>{{ p.get_e_waste_category_display }} · {{ p.estimated_weight }} kg</td>
+          <td>{{ p.pickup_address }}, {{ p.city }}</td>
+          <td>{{ p.created_at|date:"d M H:i" }}</td>
+          <td><form method="post" action="{% url 'pickup-ensure-task' p.pk %}">{% csrf_token %}<button class="btn btn-primary" type="submit">Create task</button></form></td>
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
+    {% endif %}
+
+    <div class="card" id="pickups">
+      <h3>Pickup requests</h3>
+      {% if recent_pickups %}
+      <table class="table">
+        <tr><th>Request</th><th>User</th><th>Item</th><th>Weight</th><th>Address</th><th>Preferred</th><th>Status</th><th>Collector</th><th>Action</th></tr>
+        {% for p in recent_pickups %}
+        <tr>
+          <td>{{ p.display_id }}</td>
+          <td>{{ p.user.username }}</td>
+          <td>{{ p.get_e_waste_category_display }}</td>
+          <td>{{ p.estimated_weight }} kg</td>
+          <td>{{ p.pickup_address }}, {{ p.city }}</td>
+          <td>{{ p.preferred_date|date:"d M Y" }} · {{ p.preferred_time }}</td>
+          <td><span class="status status-{{ p.status }}">{{ p.get_status_display }}</span></td>
+          <td>{% if p.active_task and p.active_task.assigned_to %}{{ p.active_task.assigned_to.username }}{% else %}<span class="muted">—</span>{% endif %}</td>
+          <td>{% if p.active_task %}<a href="{% url 'collection-task-detail' p.active_task.pk %}">Task {{ p.active_task.display_id }} →</a>{% elif p.status == 'pending' %}<form method="post" action="{% url 'pickup-ensure-task' p.pk %}">{% csrf_token %}<button class="btn btn-outline" type="submit">Create task</button></form>{% else %}<span class="muted">—</span>{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </table>
+      {% else %}
+      <div class="empty">No pickup requests yet.</div>
+      {% endif %}
+    </div>
+
+    <div class="two-col dash-cols">
+      <div class="card">
+        <h3>Bins needing collection ({{ full_bins|length }})</h3>
+        {% if full_bins %}
+        <table class="table">
+          <tr><th>Bin</th><th>Location</th><th>Fill</th><th></th></tr>
+          {% for b in full_bins %}
+          <tr><td><a href="{% url 'bin-detail' b.bin_id %}">{{ b.bin_id }}</a></td><td>{{ b.location }}</td><td>{{ b.fill_level }}%</td><td><a href="{% url 'bin-detail' b.bin_id %}">View →</a></td></tr>
+          {% endfor %}
+        </table>
+        {% else %}
+        <div class="empty">No bins need collection right now.</div>
+        {% endif %}
+      </div>
+      <div class="card">
+        <h3>Active alerts ({{ active_alerts|length }})</h3>
+        {% if active_alerts %}
+        <ul class="alert-feed">
+          {% for a in active_alerts %}
+          <li class="alert-item"><span class="status status-{{ a.severity }}">{{ a.get_severity_display }}</span><span>{% if a.bin %}<a href="{% url 'bin-detail' a.bin.bin_id %}">{{ a.bin.bin_id }}</a> — {% endif %}{{ a.message }}</span></li>
+          {% endfor %}
+        </ul>
+        <p><a href="{% url 'alert-list' %}">All alerts →</a></p>
+        {% else %}
+        <div class="empty">No active alerts.</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="two-col dash-cols">
+      <div class="card">
+        <h3>Recent e-waste submissions</h3>
+        {% if recent_submissions %}
+        <table class="table">
+          <tr><th>ID</th><th>User</th><th>Item</th><th>Bin</th><th>Status</th></tr>
+          {% for s in recent_submissions %}
+          <tr><td>{{ s.display_id }}</td><td>{{ s.user.username }}</td><td>{{ s.get_category_display }}</td><td>{% if s.smart_bin %}{{ s.smart_bin.bin_id }}{% else %}—{% endif %}</td><td><span class="status status-{{ s.status }}">{{ s.get_status_display }}</span></td></tr>
+          {% endfor %}
+        </table>
+        <p><a href="{% url 'recycling-dash' %}">Recycling pipeline →</a></p>
+        {% else %}
+        <div class="empty">No submissions yet.</div>
+        {% endif %}
+      </div>
+      <div class="card">
+        <h3>Recycling summary</h3>
+        <dl class="specs">
+          <div><dt>Total e-waste</dt><dd>{{ recycling.total_weight }} kg</dd></div>
+          <div><dt>Collected</dt><dd>{{ recycling.by_status.collected.count }} ({{ recycling.by_status.collected.weight }} kg)</dd></div>
+          <div><dt>Processing</dt><dd>{{ recycling.by_status.processing.count }} ({{ recycling.by_status.processing.weight }} kg)</dd></div>
+          <div><dt>Recycled</dt><dd>{{ recycling.by_status.recycled.count }} ({{ recycling.by_status.recycled.weight }} kg)</dd></div>
+        </dl>
+        <p><a href="{% url 'recycling-dash' %}">Open recycling →</a></p>
+      </div>
     </div>
 
     <div class="card">
+      <h3 id="tasks">All collection tasks</h3>
       <form method="get" class="filter-row">
         <label>Status
           <select name="status" class="input">
@@ -47,23 +155,21 @@
     </div>
 
     <div class="card">
-      <h3>Tasks</h3>
       {% if page.object_list %}
       <table class="table">
-        <tr><th>Task</th><th>Bin / Pickup</th><th>Location</th><th>Fill</th><th>Priority</th><th>Status</th><th>Collector</th><th>Created</th><th></th></tr>
+        <tr><th>Task</th><th>Type</th><th>Bin / Pickup</th><th>Priority</th><th>Collector</th><th>Status</th><th>Created</th><th></th></tr>
         {% for t in page.object_list %}
         <tr>
-          <td><a href="{% url 'collection-task-detail' t.pk %}">#{{ t.pk }}</a></td>
+          <td><a href="{% url 'collection-task-detail' t.pk %}">{{ t.display_id }}</a></td>
+          <td>{{ t.type_label }}</td>
           <td>
             {% if t.smart_bin %}<a href="{% url 'bin-detail' t.smart_bin.bin_id %}">{{ t.smart_bin.bin_id }}</a>
-            {% elif t.pickup_request %}<span title="User {{ t.pickup_request.user }}">Pickup #{{ t.pickup_request.pk }}</span>
+            {% elif t.pickup_request %}<span title="{{ t.pickup_request.user }}">{{ t.pickup_request.display_id }}</span>
             {% else %}—{% endif %}
           </td>
-          <td>{% if t.smart_bin %}{{ t.smart_bin.location }}{% elif t.pickup_request %}{{ t.pickup_request.city }}{% else %}—{% endif %}</td>
-          <td>{% if t.smart_bin %}{{ t.smart_bin.fill_level }}%{% elif t.fill_level_at_creation != None %}{{ t.fill_level_at_creation }}%{% else %}—{% endif %}</td>
           <td><span class="prio prio-{{ t.priority }}">{{ t.get_priority_display }}</span></td>
-          <td><span class="status status-{{ t.status }}">{{ t.get_status_display }}</span></td>
           <td>{% if t.assigned_to %}{{ t.assigned_to.username }}{% else %}<span class="muted">unassigned</span>{% endif %}</td>
+          <td><span class="status status-{{ t.status }}">{{ t.get_status_display }}</span></td>
           <td>{{ t.created_at|date:"d M H:i" }}</td>
           <td><a href="{% url 'collection-task-detail' t.pk %}">View →</a></td>
         </tr>
@@ -71,7 +177,7 @@
       </table>
       <p class="muted small">Page {{ page.number }} of {{ page.paginator.num_pages }} · {{ page.paginator.count }} task(s).</p>
       {% else %}
-      <div class="empty">No collection tasks yet. Tasks appear automatically when a bin reaches 80%+ fill or a user requests a pickup.</div>
+      <div class="empty">No collection tasks yet. Tasks appear automatically when a bin fills up or a user requests a pickup.</div>
       {% endif %}
     </div>
   </div>

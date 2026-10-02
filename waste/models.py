@@ -226,6 +226,11 @@ class PickupRequest(models.Model):
     def __str__(self):
         return f'Pickup #{self.pk} {self.status} ({self.user})'
 
+    @property
+    def display_id(self):
+        """Friendly ops ID, e.g. PR-1042 (code-only, no migration)."""
+        return f'PR-{self.pk:04d}' if self.pk else 'PR-…'
+
 
 class CollectionTask(models.Model):
     """Day 6 operational task — one row per real collection job.
@@ -316,6 +321,20 @@ class CollectionTask(models.Model):
         return self.status in (
             self.Status.PENDING, self.Status.ASSIGNED, self.Status.IN_TRANSIT,
         )
+
+    @property
+    def display_id(self):
+        """Friendly ops ID, e.g. CT-1042 (code-only, no migration)."""
+        return f'CT-{self.pk:04d}' if self.pk else 'CT-…'
+
+    @property
+    def type_label(self):
+        """Collector-friendly job type (no jargon)."""
+        if self.smart_bin_id:
+            return 'Smart Bin Collection'
+        if self.pickup_request_id:
+            return 'User Pickup'
+        return 'Collection'
 
     @property
     def source_label(self) -> str:

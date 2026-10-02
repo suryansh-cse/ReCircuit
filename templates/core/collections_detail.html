@@ -1,12 +1,12 @@
 {% extends "base.html" %}
-{% block title %}Collection #{{ task.pk }} — ReCircuit{% endblock %}
+{% block title %}Task {{ task.display_id }} — ReCircuit{% endblock %}
 {% block content %}
 <section class="section">
   <div class="container narrow">
-    <p>{% if is_staff %}<a href="{% url 'collections-ops' %}">← Operations</a>{% else %}<a href="{% url 'my-tasks' %}">← My tasks</a>{% endif %}</p>
+    <p>{% if is_staff %}<a href="{% url 'collections-ops' %}">← Operations</a>{% elif is_collector %}<a href="{% url 'my-tasks' %}">← My tasks</a>{% elif task.pickup_request %}<a href="{% url 'pickup-detail' task.pickup_request.pk %}">← My pickup</a>{% else %}<a href="{% url 'dashboard' %}">← Dashboard</a>{% endif %}</p>
     <div class="card">
       <div class="dash-head">
-        <div><h2>Collection #{{ task.pk }}</h2><p class="muted">Source: {{ task.source_label }}</p></div>
+        <div><h2>Task {{ task.display_id }}</h2><p class="muted">{{ task.type_label }}</p></div>
         <div style="display:flex;gap:8px;align-items:center">
           <span class="prio prio-{{ task.priority }}">{{ task.get_priority_display }}</span>
           <span class="status status-{{ task.status }}">{{ task.get_status_display }}</span>
@@ -22,14 +22,14 @@
         <div><dt>Fill at task creation</dt><dd>{% if task.fill_level_at_creation != None %}{{ task.fill_level_at_creation }}%{% else %}—{% endif %}</dd></div>
         {% endif %}
         {% if task.pickup_request %}
-        <div><dt>Pickup</dt><dd>#{{ task.pickup_request.pk }} · {{ task.pickup_request.get_e_waste_category_display }} · {{ task.pickup_request.estimated_weight }} kg</dd></div>
+        <div><dt>Pickup</dt><dd>{{ task.pickup_request.display_id }} · {{ task.pickup_request.get_e_waste_category_display }} · {{ task.pickup_request.estimated_weight }} kg</dd></div>
         <div><dt>Address</dt><dd>{{ task.pickup_request.pickup_address }}, {{ task.pickup_request.city }}</dd></div>
         <div><dt>Pickup status</dt><dd><span class="status status-{{ task.pickup_request.status }}">{{ task.pickup_request.get_status_display }}</span></dd></div>
         {% endif %}
         {% if task.created_from_alert %}
         <div><dt>Source alert</dt><dd>{{ task.created_from_alert.get_alert_type_display }} · {{ task.created_from_alert.get_severity_display }} · {% if task.created_from_alert.is_active %}active{% else %}resolved{% endif %}</dd></div>
         {% endif %}
-        <div><dt>Collector</dt><dd>{% if task.assigned_to %}{{ task.assigned_to.username }}{% if task.assigned_to.profile.employee_id %} ({{ task.assigned_to.profile.employee_id }}){% endif %}{% else %}unassigned{% endif %}</dd></div>
+        <div><dt>Collector</dt><dd>{% if is_staff %}{% if task.assigned_to %}{{ task.assigned_to.username }}{% if task.assigned_to.profile.employee_id %} ({{ task.assigned_to.profile.employee_id }}){% endif %}{% else %}unassigned{% endif %}{% else %}{% if task.assigned_to %}Assigned{% else %}Not assigned yet{% endif %}{% endif %}</dd></div>
         {% if task.notes %}<div><dt>Notes</dt><dd>{{ task.notes }}</dd></div>{% endif %}
         <div><dt>Created</dt><dd>{{ task.created_at|date:"d M Y, H:i" }}</dd></div>
         <div><dt>Assigned</dt><dd>{{ task.assigned_at|date:"d M Y, H:i"|default:"—" }}</dd></div>
@@ -68,17 +68,17 @@
       </div>
       {% endif %}
 
-      {% if task.status == 'assigned' %}
+      {% if task.status == 'assigned' and is_collector or task.status == 'assigned' and is_staff %}
       <form method="post" action="{% url 'collection-task-start' task.pk %}">
         {% csrf_token %}
         <button class="btn btn-primary btn-block" type="submit">Start collection</button>
       </form>
-      {% elif task.status == 'in_transit' %}
+      {% elif task.status == 'in_transit' and is_collector or task.status == 'in_transit' and is_staff %}
       <form method="post" action="{% url 'collection-task-complete' task.pk %}">
         {% csrf_token %}
         <button class="btn btn-primary btn-block" type="submit">Mark as collected</button>
       </form>
-      <p class="muted small">Operational note: completing resolves the collection alert but does not fabricate a sensor reading.</p>
+      <p class="muted small">Completing a pickup also moves the linked e-waste to collected.</p>
       {% endif %}
     </div>
   </div>

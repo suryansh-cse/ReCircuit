@@ -43,10 +43,23 @@ def _collectors_qs():
 
 @login_required
 def ops_dashboard(request):
-    """Staff-only collection operations: stats + filterable task table."""
+    """Staff-only operations control center (Day 8: central, DB-driven).
+
+    Sections: pickup requests (incl. orphans missing tasks), collection
+    tasks (existing filterable queue, unchanged), bins needing collection,
+    active alerts, recent submissions, recycling summary. Every number is a
+    live database aggregate.
+    """
     denied = _require_staff(request)
     if denied is not None:
         return denied
+    from bins.models import SmartBin
+    from core.alerts import monitoring_summary
+    from core.models import Alert
+    from waste.collections import orphan_pickups
+    from waste.models import EwasteSubmission
+    from waste.recycling import recycling_summary
+
     tasks = CollectionTask.objects.select_related(
         'smart_bin', 'pickup_request', 'pickup_request__user',
         'assigned_to', 'assigned_to__profile', 'created_from_alert',
@@ -77,12 +90,50 @@ def ops_dashboard(request):
     paginator = Paginator(tasks, 25)
     page = paginator.get_page(request.GET.get('page'))
     collectors = list(_collectors_qs())
+
+    # --- Day 8 control-center context (all live DB rows) ---
+    orphans = list(orphan_pickups()[:10])
+    recent_pickups = list(PickupRequest.objects.select_related('user').order_by('-created_at')[:10])
+    active_task_by_pickup = {
+        t.pickup_request_id: t
+        for t in CollectionTask.objects.filter(
+            pickup_request__in=[p.pk for p in recent_pickups] + [p.pk for p in orphans],
+            status__in=CollectionTask.ACTIVE_STATUSES,
+        ).select_related('assigned_to')
+    }
+    for p in list(recent_pickups) + orphans:
+        p.active_task = active_task_by_pickup.get(p.pk)
+    full_bins = list(SmartBin.objects.filter(fill_level__gte=80.0).order_by('-fill_level')[:8])
+    active_alerts = list(
+        Alert.objects.filter(is_active=True).select_related('bin').order_by('-created_at')[:8])
+    recent_submissions = list(
+        EwasteSubmission.objects.select_related('user', 'smart_bin').order_by('-created_at')[:8])
+    recycling = recycling_summary()
+    monitoring = monitoring_summary()
+    control_stats = {
+        'total_pickups': PickupRequest.objects.count(),
+        'pending_pickups': PickupRequest.objects.filter(
+            status=PickupRequest.Status.PENDING).count(),
+        'active_collections': CollectionTask.objects.filter(
+            status__in=CollectionTask.ACTIVE_STATUSES).count(),
+        'bins_needing': SmartBin.objects.filter(fill_level__gte=80.0).count(),
+        'active_alerts': monitoring['active_alerts'],
+        'total_ewaste': recycling['total_weight'],
+        'recycled_weight': recycling['by_status']['recycled']['weight'],
+    }
     return render(request, 'core/collections_ops.html', {
         'stats': stats, 'page': page,
         'status_f': status_f, 'priority_f': priority_f, 'source_f': source_f,
         'status_choices': CollectionTask.Status.choices,
         'priority_choices': CollectionTask.Priority.choices,
         'collectors': collectors,
+        'control_stats': control_stats,
+        'orphans': orphans,
+        'recent_pickups': recent_pickups,
+        'full_bins': full_bins,
+        'active_alerts': active_alerts,
+        'recent_submissions': recent_submissions,
+        'recycling': recycling,
     })
 
 
@@ -102,6 +153,7 @@ def task_detail(request, pk):
     return render(request, 'core/collections_detail.html', {
         'task': task, 'collectors': collectors,
         'is_staff': is_ops_staff(request.user),
+        'is_collector': is_collector(request.user),
     })
 
 
@@ -176,7 +228,8 @@ def my_tasks(request):
         from django.http import HttpResponseForbidden
         return HttpResponseForbidden('Collector account required.')
     tasks = CollectionTask.objects.select_related(
-        'smart_bin', 'pickup_request', 'created_from_alert',
+        'smart_bin', 'pickup_request', 'pickup_request__user',
+        'created_from_alert',
     ).filter(assigned_to=request.user).order_by('-created_at')
     status_f = request.GET.get('status', '')
     if status_f in dict(CollectionTask.Status.choices):

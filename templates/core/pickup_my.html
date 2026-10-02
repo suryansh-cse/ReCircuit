@@ -4,26 +4,25 @@
 <section class="section">
   <div class="container">
     <div class="dash-head">
-      <div><h2>My pickups</h2><p class="muted">Track every request through Pending → Assigned → In Transit → Collected → Processing → Recycled.</p></div>
+      <div><h2>My pickups</h2><p class="muted">We collect from your doorstep — follow each request from pending to recycled.</p></div>
       <a href="{% url 'pickup-request' %}" class="btn btn-primary">+ New pickup</a>
     </div>
     <div class="card">
       {% if active_pickups %}
       <table class="table">
-        <tr><th>ID</th><th>Category</th><th>Weight</th><th>City</th><th>Preferred</th><th>Status</th></tr>
+        <tr><th>Pickup</th><th>Item</th><th>Weight</th><th>Scheduled</th><th>Status</th></tr>
         {% for p in active_pickups %}
         <tr>
-          <td><a href="{% url 'pickup-detail' p.pk %}">#{{ p.pk }}</a></td>
+          <td><a href="{% url 'pickup-detail' p.pk %}">{{ p.display_id }}</a></td>
           <td>{{ p.get_e_waste_category_display }}</td>
           <td>{{ p.estimated_weight }} kg</td>
-          <td>{{ p.city }}</td>
           <td>{{ p.preferred_date|date:"d M Y" }} · {{ p.preferred_time }}</td>
           <td><span class="status status-{{ p.status }}">{{ p.get_status_display }}</span></td>
         </tr>
         {% endfor %}
       </table>
       {% else %}
-      <div class="empty">No pickup requests yet. <a href="{% url 'pickup-request' %}">Schedule your first pickup</a>.</div>
+      <div class="empty">You don't have any pickup requests yet. <a href="{% url 'pickup-request' %}">Schedule your first pickup</a> — it takes a minute.</div>
       {% endif %}
     </div>
     {% if cancelled_pickups %}
@@ -31,7 +30,7 @@
       <h3>Cancelled</h3>
       <table class="table">
         {% for p in cancelled_pickups %}
-        <tr><td><a href="{% url 'pickup-detail' p.pk %}">#{{ p.pk }}</a></td><td>{{ p.get_e_waste_category_display }}</td><td>{{ p.created_at|date:"d M Y" }}</td><td><span class="status status-cancelled">Cancelled</span></td></tr>
+        <tr><td><a href="{% url 'pickup-detail' p.pk %}">{{ p.display_id }}</a></td><td>{{ p.get_e_waste_category_display }}</td><td>{{ p.created_at|date:"d M Y" }}</td><td><span class="status status-cancelled">Cancelled</span></td></tr>
         {% endfor %}
       </table>
     </div>

@@ -4,7 +4,7 @@
 <section class="section">
   <div class="container">
     <div class="dash-head">
-      <div><h2>Smart bins · live</h2><p class="muted">Database values, auto-refreshed every 5 s. <span class="badge">SIMULATED</span> = demo data. <span class="badge badge-real">REAL</span> = ESP32 hardware. <span id="live-note">connecting…</span></p></div>
+      <div><h2>Smart bins · live</h2><p class="muted">Live readings, refreshed every few seconds. <span class="badge">SIMULATED</span> = demo data. <span class="badge badge-real">REAL</span> = live sensor. <span id="live-note">connecting…</span></p></div>
       <a href="{% url 'alert-list' %}" class="btn btn-outline">Alerts (<span id="nav-alert-echo">{{ summary.active_alerts }}</span>)</a>
     </div>
     <div id="conn-error" class="conn-error" hidden>Connection lost — retrying… (showing last known values)</div>
