@@ -326,4 +326,4 @@ class AuthTests(TestCase):
         c.force_login(self.staff)
         r = c.get('/operations/')
         self.assertEqual(r.status_code, 200)
-        self.assertContains(r, 'Collection operations')
+        self.assertContains(r, 'Operations control center')
