@@ -96,6 +96,112 @@ class PickupRequest(models.Model):
         return f'Pickup #{self.pk} {self.status} ({self.user})'
 
 
+class CollectionTask(models.Model):
+    """Day 6 operational task — one row per real collection job.
+
+    A task originates from EITHER a smart-bin fill alert OR a user
+    pickup request (both nullable, never both mandatory). Admin assigns a
+    collector; the collector moves ASSIGNED -> IN_TRANSIT -> COLLECTED.
+    PENDING = created but unassigned. CANCELLED = terminal, allows retry.
+    """
+
+    class Priority(models.TextChoices):
+        NORMAL = 'normal', 'Normal'
+        HIGH = 'high', 'High'
+        CRITICAL = 'critical', 'Critical'
+
+    class Status(models.TextChoices):
+        PENDING = 'pending', 'Pending'
+        ASSIGNED = 'assigned', 'Assigned'
+        IN_TRANSIT = 'in_transit', 'In Transit'
+        COLLECTED = 'collected', 'Collected'
+        CANCELLED = 'cancelled', 'Cancelled'
+
+    #: Statuses that block a duplicate task for the same source.
+    ACTIVE_STATUSES = (
+        Status.PENDING, Status.ASSIGNED, Status.IN_TRANSIT,
+    )
+    TERMINAL_STATUSES = (Status.COLLECTED, Status.CANCELLED)
+
+    smart_bin = models.ForeignKey(
+        'bins.SmartBin', null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='collection_tasks',
+        help_text='Set when the task came from a smart-bin fill alert.',
+    )
+    pickup_request = models.ForeignKey(
+        PickupRequest, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='collection_tasks',
+        help_text='Set when the task came from a user pickup request.',
+    )
+    assigned_to = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='collection_tasks',
+        help_text='Collector user (must have collector role).',
+    )
+    created_from_alert = models.ForeignKey(
+        'core.Alert', null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='collection_tasks',
+        help_text='Fill alert that triggered this task, if any.',
+    )
+    priority = models.CharField(
+        max_length=10, choices=Priority.choices, default=Priority.NORMAL,
+    )
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.PENDING,
+    )
+    notes = models.TextField(blank=True)
+    # Snapshot at creation for history (sensor state may change later).
+    fill_level_at_creation = models.FloatField(null=True, blank=True)
+    weight_at_creation = models.FloatField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    assigned_at = models.DateTimeField(null=True, blank=True)
+    started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['status']),
+            models.Index(fields=['priority']),
+            models.Index(fields=['assigned_to', 'status']),
+            models.Index(fields=['smart_bin', 'status']),
+            models.Index(fields=['pickup_request', 'status']),
+            models.Index(fields=['-created_at']),
+        ]
+
+    def __str__(self):
+        if self.smart_bin_id:
+            src = f'bin {self.smart_bin.bin_id}' if hasattr(self.smart_bin, 'bin_id') else f'bin#{self.smart_bin_id}'
+        elif self.pickup_request_id:
+            src = f'pickup#{self.pickup_request_id}'
+        else:
+            src = 'manual'
+        who = f' -> {self.assigned_to}' if self.assigned_to_id else ''
+        return f'Task #{self.pk} ({src}) {self.status}{who}'
+
+    @property
+    def is_active(self) -> bool:
+        return self.status in (
+            self.Status.PENDING, self.Status.ASSIGNED, self.Status.IN_TRANSIT,
+        )
+
+    @property
+    def source_label(self) -> str:
+        if self.smart_bin_id:
+            return 'Smart Bin Alert'
+        if self.pickup_request_id:
+            return 'User Pickup'
+        return 'Manual'
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        if not self.smart_bin_id and not self.pickup_request_id:
+            raise ValidationError(
+                'A task needs either a smart_bin or a pickup_request.'
+            )
+
+
 class Collection(models.Model):
     """An operational collection event — from a pickup and/or a smart bin."""
 

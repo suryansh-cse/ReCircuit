@@ -1,7 +1,7 @@
 """Core page routes (Day 1 landing + Day 2 user side + Day 3 pickups/bins)."""
 from django.urls import path
 
-from . import views
+from . import views, views_collection
 
 urlpatterns = [
     path('', views.landing, name='landing'),
@@ -21,6 +21,18 @@ urlpatterns = [
     path('bins/<str:bin_id>/', views.bin_detail, name='bin-detail'),
     # Day 5 alerts (public monitoring)
     path('alerts/', views.alert_list_view, name='alert-list'),
+    # Day 6 collection operations (staff) + collector tasks
+    path('operations/', views_collection.ops_dashboard, name='collections-ops'),
+    path('operations/collectors/', views_collection.collectors_manage, name='collectors-manage'),
+    path('operations/collectors/create/', views_collection.collectors_create, name='collectors-create'),
+    path('operations/collectors/<int:pk>/toggle/', views_collection.collectors_toggle, name='collectors-toggle'),
+    path('operations/pickup/<int:pickup_id>/ensure-task/', views_collection.task_ensure_pickup, name='pickup-ensure-task'),
+    path('tasks/mine/', views_collection.my_tasks, name='my-tasks'),
+    path('tasks/<int:pk>/', views_collection.task_detail, name='collection-task-detail'),
+    path('tasks/<int:pk>/assign/', views_collection.task_assign, name='collection-task-assign'),
+    path('tasks/<int:pk>/start/', views_collection.task_start, name='collection-task-start'),
+    path('tasks/<int:pk>/complete/', views_collection.task_complete, name='collection-task-complete'),
+    path('tasks/<int:pk>/cancel/', views_collection.task_cancel, name='collection-task-cancel'),
     # Backward-compat redirects for Day 2 dashboard buttons
     path('schedule-pickup/', views.schedule_pickup_placeholder, name='schedule-pickup'),
     path('find-bins/', views.find_bins_placeholder, name='find-bins'),

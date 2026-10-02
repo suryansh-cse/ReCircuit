@@ -54,14 +54,26 @@ def _resolve(smart_bin, alert_type):
 
 
 def check_fill_alert(smart_bin):
-    """Fill >= 80% → active CRITICAL FILL_LEVEL; below → resolve."""
+    """Fill >= 80% → active CRITICAL FILL_LEVEL; below → resolve.
+
+    Day 6: an active fill alert also ensures exactly one active
+    CollectionTask (dedupe lives in waste.collections.ensure_bin_task).
+    """
     critical_at = getattr(settings, 'RECIRCUIT_FILL_CRITICAL_AT', 80.0)
     if smart_bin.fill_level >= critical_at:
-        return _raise(
+        alert, _ = _raise(
             smart_bin, Alert.AlertType.FILL_LEVEL, Alert.Severity.CRITICAL,
             f'{smart_bin.bin_id} fill level has reached '
             f'{smart_bin.fill_level:.0f}%. Collection required.',
         )
+        # Operational follow-through — never let telemetry failures break
+        # monitoring, so task creation must not raise.
+        try:
+            from waste.collections import ensure_bin_task
+            ensure_bin_task(smart_bin, alert=alert)
+        except Exception:
+            pass
+        return alert, False
     _resolve(smart_bin, Alert.AlertType.FILL_LEVEL)
     return None, False
 

@@ -3,13 +3,18 @@ from django.contrib import admin
 
 from .models import Alert, Profile
 from bins.models import SmartBin, Telemetry
-from waste.models import Collection, EwasteSubmission, PickupRequest, RecyclingRecord
+from waste.models import (
+    Collection, CollectionTask, EwasteSubmission, PickupRequest,
+    RecyclingRecord,
+)
 
 
 @admin.register(Profile)
 class ProfileAdmin(admin.ModelAdmin):
-    list_display = ('user', 'full_name', 'city', 'phone', 'created_at')
-    search_fields = ('user__username', 'full_name', 'phone', 'city')
+    list_display = ('user', 'full_name', 'city', 'phone', 'role',
+                    'employee_id', 'is_collector_active', 'created_at')
+    list_filter = ('role', 'is_collector_active')
+    search_fields = ('user__username', 'full_name', 'phone', 'city', 'employee_id')
 
 
 @admin.register(SmartBin)
@@ -46,6 +51,18 @@ class PickupRequestAdmin(admin.ModelAdmin):
 class CollectionAdmin(admin.ModelAdmin):
     list_display = ('id', 'pickup', 'bin', 'status', 'collected_weight', 'created_at')
     list_filter = ('status',)
+
+
+@admin.register(CollectionTask)
+class CollectionTaskAdmin(admin.ModelAdmin):
+    list_display = ('id', 'source_label', 'smart_bin', 'pickup_request',
+                    'priority', 'status', 'assigned_to',
+                    'created_at', 'completed_at')
+    list_filter = ('status', 'priority')
+    search_fields = ('smart_bin__bin_id', 'pickup_request__id',
+                     'assigned_to__username')
+    readonly_fields = ('created_at', 'assigned_at', 'started_at',
+                       'completed_at', 'updated_at')
 
 
 @admin.register(RecyclingRecord)

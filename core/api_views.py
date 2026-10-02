@@ -340,3 +340,160 @@ def bin_history_api(request, bin_id):
         'temperature': p.temperature,
         'data_source': p.data_source,
     } for p in reversed(points)])
+
+
+# ---------- Day 6: collection task APIs ----------
+
+def _task_payload(task):
+    return {
+        'id': task.pk,
+        'status': task.status,
+        'status_display': task.get_status_display(),
+        'priority': task.priority,
+        'priority_display': task.get_priority_display(),
+        'source': task.source_label,
+        'bin_id': task.smart_bin.bin_id if task.smart_bin else None,
+        'bin_location': task.smart_bin.location if task.smart_bin else None,
+        'bin_fill': task.smart_bin.fill_level if task.smart_bin else task.fill_level_at_creation,
+        'bin_weight': task.smart_bin.weight if task.smart_bin else task.weight_at_creation,
+        'pickup_id': task.pickup_request_id,
+        'pickup_status': task.pickup_request.status if task.pickup_request else None,
+        'assigned_to': task.assigned_to.username if task.assigned_to else None,
+        'assigned_to_id': task.assigned_to_id,
+        'notes': task.notes,
+        'created_at': task.created_at.isoformat(),
+        'assigned_at': task.assigned_at.isoformat() if task.assigned_at else None,
+        'started_at': task.started_at.isoformat() if task.started_at else None,
+        'completed_at': task.completed_at.isoformat() if task.completed_at else None,
+    }
+
+
+def _task_qs_for(user):
+    """Staff see all; collectors see own; users see tasks for own pickups."""
+    from django.db.models import Q
+
+    from core.models import is_collector, is_ops_staff
+    from waste.models import CollectionTask
+    qs = CollectionTask.objects.select_related(
+        'smart_bin', 'pickup_request', 'assigned_to').order_by('-created_at')
+    if is_ops_staff(user):
+        return qs
+    if is_collector(user):
+        return qs.filter(assigned_to=user)
+    return qs.filter(pickup_request__user=user)
+
+
+@api_view(['GET'])
+def task_list_api(request):
+    """GET /api/collection-tasks/ — scoped to the caller's role."""
+    if not request.user.is_authenticated:
+        return Response({'error': 'Authentication required.'},
+                        status=status.HTTP_403_FORBIDDEN)
+    tasks = _task_qs_for(request.user)
+    s = request.GET.get('status')
+    if s:
+        tasks = tasks.filter(status=s)
+    return Response([_task_payload(t) for t in tasks[:100]])
+
+
+@api_view(['GET'])
+def task_detail_api(request, pk):
+    """GET /api/collection-tasks/<id>/ — 404 for foreign tasks (no leaking)."""
+    from waste.collections import may_view_task
+    from waste.models import CollectionTask
+    if not request.user.is_authenticated:
+        return Response({'error': 'Authentication required.'},
+                        status=status.HTTP_403_FORBIDDEN)
+    try:
+        task = CollectionTask.objects.select_related(
+            'smart_bin', 'pickup_request', 'assigned_to').get(pk=pk)
+    except CollectionTask.DoesNotExist:
+        return Response({'error': 'Task not found.'},
+                        status=status.HTTP_404_NOT_FOUND)
+    if not may_view_task(task, request.user):
+        return Response({'error': 'Task not found.'},
+                        status=status.HTTP_404_NOT_FOUND)
+    return Response(_task_payload(task))
+
+
+@api_view(['POST'])
+def task_assign_api(request, pk):
+    """POST /api/collection-tasks/<id>/assign/ — staff only."""
+    from django.contrib.auth import get_user_model
+
+    from core.models import is_ops_staff
+    from waste.collections import TaskTransitionError, assign_task
+    from waste.models import CollectionTask
+    if not request.user.is_authenticated or not is_ops_staff(request.user):
+        return Response({'error': 'Staff permission required.'},
+                        status=status.HTTP_403_FORBIDDEN)
+    try:
+        task = CollectionTask.objects.get(pk=pk)
+    except CollectionTask.DoesNotExist:
+        return Response({'error': 'Task not found.'},
+                        status=status.HTTP_404_NOT_FOUND)
+    collector_id = (request.data or {}).get('collector_id')
+    if not collector_id:
+        return Response({'error': 'collector_id is required.'},
+                        status=status.HTTP_400_BAD_REQUEST)
+    try:
+        collector = get_user_model().objects.get(pk=collector_id)
+    except (get_user_model().DoesNotExist, ValueError, TypeError):
+        return Response({'error': 'Unknown collector.'},
+                        status=status.HTTP_404_NOT_FOUND)
+    try:
+        assign_task(task, collector)
+    except TaskTransitionError as exc:
+        return Response({'error': str(exc)},
+                        status=status.HTTP_400_BAD_REQUEST)
+    task.refresh_from_db()
+    return Response(_task_payload(task))
+
+
+def _operate_api(request, pk, action):
+    from core.models import is_collector, is_ops_staff
+    from waste.collections import TaskTransitionError, complete_task, start_task
+    from waste.models import CollectionTask
+    if not request.user.is_authenticated or not (
+            is_collector(request.user) or is_ops_staff(request.user)):
+        return Response({'error': 'Collector permission required.'},
+                        status=status.HTTP_403_FORBIDDEN)
+    try:
+        task = CollectionTask.objects.get(pk=pk)
+    except CollectionTask.DoesNotExist:
+        return Response({'error': 'Task not found.'},
+                        status=status.HTTP_404_NOT_FOUND)
+    try:
+        if action == 'start':
+            start_task(task, by_user=request.user)
+        elif action == 'complete':
+            complete_task(task, by_user=request.user)
+        else:
+            from waste.collections import cancel_task
+            if not is_ops_staff(request.user):
+                return Response({'error': 'Staff permission required.'},
+                                status=status.HTTP_403_FORBIDDEN)
+            cancel_task(task)
+    except TaskTransitionError as exc:
+        return Response({'error': str(exc)},
+                        status=status.HTTP_400_BAD_REQUEST)
+    task.refresh_from_db()
+    return Response(_task_payload(task))
+
+
+@api_view(['POST'])
+def task_start_api(request, pk):
+    """POST /api/collection-tasks/<id>/start/ — own task only."""
+    return _operate_api(request, pk, 'start')
+
+
+@api_view(['POST'])
+def task_complete_api(request, pk):
+    """POST /api/collection-tasks/<id>/complete/ — own task only."""
+    return _operate_api(request, pk, 'complete')
+
+
+@api_view(['POST'])
+def task_cancel_api(request, pk):
+    """POST /api/collection-tasks/<id>/cancel/ — staff only."""
+    return _operate_api(request, pk, 'cancel')

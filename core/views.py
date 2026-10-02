@@ -176,6 +176,14 @@ def pickup_request_view(request):
             pickup.user = request.user  # never trust client for ownership
             pickup.status = PickupRequest.Status.PENDING  # users can't set status
             pickup.save()
+            # Day 6: every pickup gets exactly one active CollectionTask
+            # (dedupe inside ensure_pickup_task) so ops + collectors share
+            # the same workflow as smart-bin alerts.
+            try:
+                from waste.collections import ensure_pickup_task
+                ensure_pickup_task(pickup)
+            except Exception:
+                pass
             messages.success(
                 request,
                 f'Pickup requested! ID #{pickup.pk} is now Pending.',
@@ -212,8 +220,11 @@ def pickup_detail(request, pk):
          'current': s == pickup.status}
         for s in PICKUP_STAGES
     ]
+    # Day 6: show the linked operational task so users see collection progress.
+    collection_task = pickup.collection_tasks.order_by('-created_at').first()
     return render(request, 'core/pickup_detail.html', {
         'pickup': pickup, 'stages': stages,
+        'collection_task': collection_task,
     })
 
 
