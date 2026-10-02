@@ -294,6 +294,8 @@ class PickupDownstreamSyncTests(TestCase):
         assign_task(task, col)
         start_task(task, by_user=col)
         complete_task(task, by_user=col)
+        pickup.refresh_from_db()
+        sub.refresh_from_db()
         return user, col, staff, pickup, task, sub
 
     def test_11_pickup_follows_submission_downstream(self):
