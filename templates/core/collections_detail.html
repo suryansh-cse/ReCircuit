@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}Collection #{{ task.pk }} — ReCircuit{% endblock %}
+{% block content %}
+<section class="section">
+  <div class="container narrow">
+    <p>{% if is_staff %}<a href="{% url 'collections-ops' %}">← Operations</a>{% else %}<a href="{% url 'my-tasks' %}">← My tasks</a>{% endif %}</p>
+    <div class="card">
+      <div class="dash-head">
+        <div><h2>Collection #{{ task.pk }}</h2><p class="muted">Source: {{ task.source_label }}</p></div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <span class="prio prio-{{ task.priority }}">{{ task.get_priority_display }}</span>
+          <span class="status status-{{ task.status }}">{{ task.get_status_display }}</span>
+        </div>
+      </div>
+
+      <dl class="specs">
+        {% if task.smart_bin %}
+        <div><dt>Bin</dt><dd><a href="{% url 'bin-detail' task.smart_bin.bin_id %}">{{ task.smart_bin.bin_id }}</a> · {{ task.smart_bin.name }}</dd></div>
+        <div><dt>Location</dt><dd>{{ task.smart_bin.location }}{% if task.smart_bin.city %} · {{ task.smart_bin.city }}{% endif %}</dd></div>
+        <div><dt>Fill (live)</dt><dd>{{ task.smart_bin.fill_level }}%</dd></div>
+        <div><dt>Weight (live)</dt><dd>{{ task.smart_bin.weight }} kg</dd></div>
+        <div><dt>Fill at task creation</dt><dd>{% if task.fill_level_at_creation != None %}{{ task.fill_level_at_creation }}%{% else %}—{% endif %}</dd></div>
+        {% endif %}
+        {% if task.pickup_request %}
+        <div><dt>Pickup</dt><dd>#{{ task.pickup_request.pk }} · {{ task.pickup_request.get_e_waste_category_display }} · {{ task.pickup_request.estimated_weight }} kg</dd></div>
+        <div><dt>Address</dt><dd>{{ task.pickup_request.pickup_address }}, {{ task.pickup_request.city }}</dd></div>
+        <div><dt>Pickup status</dt><dd><span class="status status-{{ task.pickup_request.status }}">{{ task.pickup_request.get_status_display }}</span></dd></div>
+        {% endif %}
+        {% if task.created_from_alert %}
+        <div><dt>Source alert</dt><dd>{{ task.created_from_alert.get_alert_type_display }} · {{ task.created_from_alert.get_severity_display }} · {% if task.created_from_alert.is_active %}active{% else %}resolved{% endif %}</dd></div>
+        {% endif %}
+        <div><dt>Collector</dt><dd>{% if task.assigned_to %}{{ task.assigned_to.username }}{% if task.assigned_to.profile.employee_id %} ({{ task.assigned_to.profile.employee_id }}){% endif %}{% else %}unassigned{% endif %}</dd></div>
+        {% if task.notes %}<div><dt>Notes</dt><dd>{{ task.notes }}</dd></div>{% endif %}
+        <div><dt>Created</dt><dd>{{ task.created_at|date:"d M Y, H:i" }}</dd></div>
+        <div><dt>Assigned</dt><dd>{{ task.assigned_at|date:"d M Y, H:i"|default:"—" }}</dd></div>
+        <div><dt>Started</dt><dd>{{ task.started_at|date:"d M Y, H:i"|default:"—" }}</dd></div>
+        <div><dt>Collected</dt><dd>{{ task.completed_at|date:"d M Y, H:i"|default:"—" }}</dd></div>
+      </dl>
+
+      {% if task.status == 'collected' %}
+      <div class="empty">Collected — history stored above. Bin fill level was <strong>not</strong> auto-changed: the next sensor reading verifies the emptying. If the bin still reads 80%+, a fresh alert and task will appear.</div>
+      {% endif %}
+
+      {% if is_staff %}
+      <div class="card">
+        <h3>Assign / reassign collector</h3>
+        {% if collectors %}
+        <form method="post" action="{% url 'collection-task-assign' task.pk %}">
+          {% csrf_token %}
+          <label>Collector
+            <select name="collector_id" class="input">
+              {% for c in collectors %}
+              <option value="{{ c.pk }}"{% if task.assigned_to_id == c.pk %} selected{% endif %}>{{ c.username }}{% if c.profile.employee_id %} ({{ c.profile.employee_id }}){% endif %}{% if not c.profile.is_collector_active %} — inactive{% endif %}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <button class="btn btn-primary" type="submit" style="margin-top:10px">Assign</button>
+        </form>
+        {% else %}
+        <div class="empty">No collectors yet. <a href="{% url 'collectors-manage' %}">Create a collector account</a> first.</div>
+        {% endif %}
+        {% if task.status != 'collected' and task.status != 'cancelled' %}
+        <form method="post" action="{% url 'collection-task-cancel' task.pk %}" style="margin-top:12px">
+          {% csrf_token %}
+          <button class="btn btn-outline" type="submit" onclick="return confirm('Cancel task #{{ task.pk }}?')">Cancel task</button>
+        </form>
+        {% endif %}
+      </div>
+      {% endif %}
+
+      {% if task.status == 'assigned' %}
+      <form method="post" action="{% url 'collection-task-start' task.pk %}">
+        {% csrf_token %}
+        <button class="btn btn-primary btn-block" type="submit">Start collection</button>
+      </form>
+      {% elif task.status == 'in_transit' %}
+      <form method="post" action="{% url 'collection-task-complete' task.pk %}">
+        {% csrf_token %}
+        <button class="btn btn-primary btn-block" type="submit">Mark as collected</button>
+      </form>
+      <p class="muted small">Operational note: completing resolves the collection alert but does not fabricate a sensor reading.</p>
+      {% endif %}
+    </div>
+  </div>
+</section>
+{% endblock %}

@@ -25,6 +25,8 @@
           <a href="{% url 'pickup-my' %}">My Pickups</a>
           <a href="{% url 'bin-list' %}">Smart Bins</a>
           <a href="{% url 'alert-list' %}">Alerts{% if active_alert_count %} ({{ active_alert_count }}){% endif %}</a>
+          {% if is_ops_staff %}<a href="{% url 'collections-ops' %}">Operations</a>{% endif %}
+          {% if is_collector_user %}<a href="{% url 'my-tasks' %}">My Tasks{% if my_active_tasks %} ({{ my_active_tasks }}){% endif %}</a>{% endif %}
           <a href="{% url 'profile' %}" class="nav-user">{{ user.username }}</a>
           <a href="{% url 'logout' %}" class="btn btn-ghost">Logout</a>
         {% else %}

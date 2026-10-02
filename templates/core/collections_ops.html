@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Collection Operations — ReCircuit{% endblock %}
+{% block content %}
+<section class="section">
+  <div class="container">
+    <div class="dash-head">
+      <div><h2>Collection operations</h2><p class="muted">Smart-bin alerts and user pickups converge here into one task queue.</p></div>
+      <div class="hero-actions">
+        <a href="{% url 'collectors-manage' %}" class="btn btn-outline">Collectors</a>
+        <a href="{% url 'alert-list' %}" class="btn btn-outline">Alerts</a>
+      </div>
+    </div>
+
+    <div class="stat-grid six">
+      <div class="stat"><span class="stat-value">{{ stats.total }}</span><span class="stat-label">total tasks</span></div>
+      <div class="stat"><span class="stat-value">{{ stats.pending }}</span><span class="stat-label">pending</span></div>
+      <div class="stat"><span class="stat-value">{{ stats.assigned }}</span><span class="stat-label">assigned</span></div>
+      <div class="stat"><span class="stat-value">{{ stats.in_transit }}</span><span class="stat-label">in transit</span></div>
+      <div class="stat"><span class="stat-value">{{ stats.collected }}</span><span class="stat-label">collected</span></div>
+      <div class="stat"><span class="stat-value">{{ stats.cancelled }}</span><span class="stat-label">cancelled</span></div>
+    </div>
+
+    <div class="card">
+      <form method="get" class="filter-row">
+        <label>Status
+          <select name="status" class="input">
+            <option value="">All</option>
+            {% for v,l in status_choices %}<option value="{{ v }}"{% if status_f == v %} selected{% endif %}>{{ l }}</option>{% endfor %}
+          </select>
+        </label>
+        <label>Priority
+          <select name="priority" class="input">
+            <option value="">All</option>
+            {% for v,l in priority_choices %}<option value="{{ v }}"{% if priority_f == v %} selected{% endif %}>{{ l }}</option>{% endfor %}
+          </select>
+        </label>
+        <label>Source
+          <select name="source" class="input">
+            <option value="">All</option>
+            <option value="bin"{% if source_f == 'bin' %} selected{% endif %}>Smart bin</option>
+            <option value="pickup"{% if source_f == 'pickup' %} selected{% endif %}>User pickup</option>
+          </select>
+        </label>
+        <button class="btn btn-primary" type="submit">Filter</button>
+        <a href="{% url 'collections-ops' %}" class="btn btn-outline">Reset</a>
+      </form>
+    </div>
+
+    <div class="card">
+      <h3>Tasks</h3>
+      {% if page.object_list %}
+      <table class="table">
+        <tr><th>Task</th><th>Bin / Pickup</th><th>Location</th><th>Fill</th><th>Priority</th><th>Status</th><th>Collector</th><th>Created</th><th></th></tr>
+        {% for t in page.object_list %}
+        <tr>
+          <td><a href="{% url 'collection-task-detail' t.pk %}">#{{ t.pk }}</a></td>
+          <td>
+            {% if t.smart_bin %}<a href="{% url 'bin-detail' t.smart_bin.bin_id %}">{{ t.smart_bin.bin_id }}</a>
+            {% elif t.pickup_request %}<span title="User {{ t.pickup_request.user }}">Pickup #{{ t.pickup_request.pk }}</span>
+            {% else %}—{% endif %}
+          </td>
+          <td>{% if t.smart_bin %}{{ t.smart_bin.location }}{% elif t.pickup_request %}{{ t.pickup_request.city }}{% else %}—{% endif %}</td>
+          <td>{% if t.smart_bin %}{{ t.smart_bin.fill_level }}%{% elif t.fill_level_at_creation != None %}{{ t.fill_level_at_creation }}%{% else %}—{% endif %}</td>
+          <td><span class="prio prio-{{ t.priority }}">{{ t.get_priority_display }}</span></td>
+          <td><span class="status status-{{ t.status }}">{{ t.get_status_display }}</span></td>
+          <td>{% if t.assigned_to %}{{ t.assigned_to.username }}{% else %}<span class="muted">unassigned</span>{% endif %}</td>
+          <td>{{ t.created_at|date:"d M H:i" }}</td>
+          <td><a href="{% url 'collection-task-detail' t.pk %}">View →</a></td>
+        </tr>
+        {% endfor %}
+      </table>
+      <p class="muted small">Page {{ page.number }} of {{ page.paginator.num_pages }} · {{ page.paginator.count }} task(s).</p>
+      {% else %}
+      <div class="empty">No collection tasks yet. Tasks appear automatically when a bin reaches 80%+ fill or a user requests a pickup.</div>
+      {% endif %}
+    </div>
+  </div>
+</section>
+{% endblock %}

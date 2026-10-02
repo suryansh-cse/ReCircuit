@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}My Collection Tasks — ReCircuit{% endblock %}
+{% block content %}
+<section class="section">
+  <div class="container">
+    <div class="dash-head">
+      <div><h2>My collection tasks</h2><p class="muted">Only tasks assigned to {{ user.username }}. Start → In Transit → Collected.</p></div>
+    </div>
+
+    {% if active_tasks %}
+    <div class="bin-grid">
+      {% for t in active_tasks %}
+      <div class="card bin-card" style="cursor:default">
+        <div class="bin-head">
+          <strong>{% if t.smart_bin %}{{ t.smart_bin.bin_id }}{% elif t.pickup_request %}Pickup #{{ t.pickup_request.pk }}{% else %}Task #{{ t.pk }}{% endif %}</strong>
+          <span class="prio prio-{{ t.priority }}">{{ t.get_priority_display }}</span>
+        </div>
+        <div class="muted small">
+          {% if t.smart_bin %}{{ t.smart_bin.location }}{% if t.smart_bin.city %} · {{ t.smart_bin.city }}{% endif %}
+          {% elif t.pickup_request %}{{ t.pickup_request.pickup_address }}, {{ t.pickup_request.city }}
+          {% endif %}
+        </div>
+        <div class="bin-nums" style="margin-top:10px">
+          <span class="status status-{{ t.status }}">{{ t.get_status_display }}</span>
+          <a href="{% url 'collection-task-detail' t.pk %}">Details →</a>
+        </div>
+        <dl class="specs">
+          {% if t.smart_bin %}<div><dt>Fill</dt><dd>{{ t.smart_bin.fill_level }}%</dd></div>
+          <div><dt>Weight</dt><dd>{{ t.smart_bin.weight }} kg</dd></div>{% endif %}
+          {% if t.pickup_request %}<div><dt>Weight</dt><dd>{{ t.pickup_request.estimated_weight }} kg</dd></div>
+          <div><dt>Slot</dt><dd>{{ t.pickup_request.preferred_date|date:"d M Y" }}</dd></div>{% endif %}
+        </dl>
+        {% if t.status == 'assigned' %}
+        <form method="post" action="{% url 'collection-task-start' t.pk %}">{% csrf_token %}<button class="btn btn-primary btn-block" type="submit">Start collection</button></form>
+        {% elif t.status == 'in_transit' %}
+        <form method="post" action="{% url 'collection-task-complete' t.pk %}">{% csrf_token %}<button class="btn btn-primary btn-block" type="submit">Mark as collected</button></form>
+        {% else %}
+        <p><a class="btn btn-outline btn-block" href="{% url 'collection-task-detail' t.pk %}">View</a></p>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="card"><div class="empty">No active tasks assigned to you. New assignments from the operations team will appear here.</div></div>
+    {% endif %}
+
+    {% if done_tasks %}
+    <div class="card">
+      <h3>History</h3>
+      <table class="table">
+        <tr><th>Task</th><th>Source</th><th>Status</th><th>Collected</th><th></th></tr>
+        {% for t in done_tasks %}
+        <tr>
+          <td>#{{ t.pk }}</td>
+          <td>{% if t.smart_bin %}{{ t.smart_bin.bin_id }}{% elif t.pickup_request %}Pickup #{{ t.pickup_request.pk }}{% else %}—{% endif %}</td>
+          <td><span class="status status-{{ t.status }}">{{ t.get_status_display }}</span></td>
+          <td>{{ t.completed_at|date:"d M H:i"|default:"—" }}</td>
+          <td><a href="{% url 'collection-task-detail' t.pk %}">View →</a></td>
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Collectors — ReCircuit{% endblock %}
+{% block content %}
+<section class="section">
+  <div class="container">
+    <p><a href="{% url 'collections-ops' %}">← Operations</a></p>
+    <div class="dash-head"><div><h2>Collectors</h2><p class="muted">Collector accounts reuse the normal login — role + active flag control access.</p></div></div>
+    <div class="two-col dash-cols">
+      <div class="card">
+        <h3>Team ({{ collectors|length }})</h3>
+        {% if collectors %}
+        <table class="table">
+          <tr><th>Username</th><th>Employee ID</th><th>Phone</th><th>Active tasks</th><th>Done</th><th>Status</th><th></th></tr>
+          {% for c in collectors %}
+          <tr>
+            <td>{{ c.username }}</td>
+            <td>{{ c.profile.employee_id|default:"—" }}</td>
+            <td>{{ c.profile.phone|default:"—" }}</td>
+            <td>{{ c.task_counts.active }}</td>
+            <td>{{ c.task_counts.done }}</td>
+            <td>{% if c.profile.is_collector_active %}<span class="status status-normal">Active</span>{% else %}<span class="status status-cancelled">Inactive</span>{% endif %}</td>
+            <td>
+              <form method="post" action="{% url 'collectors-toggle' c.pk %}">{% csrf_token %}
+                <button class="btn btn-outline" type="submit">{% if c.profile.is_collector_active %}Deactivate{% else %}Activate{% endif %}</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </table>
+        {% else %}
+        <div class="empty">No collectors yet — create the first account.</div>
+        {% endif %}
+      </div>
+      <div class="card">
+        <h3>New collector</h3>
+        <form method="post" action="{% url 'collectors-create' %}" class="form">
+          {% csrf_token %}
+          <label>Username<input name="username" class="input" required /></label>
+          <label>Password (8+ chars)<input name="password" type="password" class="input" required /></label>
+          <label>Full name<input name="full_name" class="input" /></label>
+          <label>Phone<input name="phone" class="input" /></label>
+          <label>Employee ID<input name="employee_id" class="input" placeholder="COL-001" /></label>
+          <button class="btn btn-primary btn-block" type="submit">Create collector</button>
+        </form>
+        <p class="muted small">Collectors log in at <code>/login/</code> with this username and password.</p>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

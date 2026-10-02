@@ -28,6 +28,11 @@
         {% if pickup.additional_notes %}<div><dt>Notes</dt><dd>{{ pickup.additional_notes }}</dd></div>{% endif %}
         <div><dt>Requested</dt><dd>{{ pickup.created_at|date:"d M Y, H:i" }}</dd></div>
         <div><dt>Last updated</dt><dd>{{ pickup.updated_at|date:"d M Y, H:i" }}</dd></div>
+        {% if collection_task %}
+        <div><dt>Collection task</dt><dd><span class="status status-{{ collection_task.status }}">{{ collection_task.get_status_display }}</span>{% if collection_task.assigned_to %} · {{ collection_task.assigned_to.username }}{% endif %}</dd></div>
+        {% if collection_task.started_at %}<div><dt>Started</dt><dd>{{ collection_task.started_at|date:"d M Y, H:i" }}</dd></div>{% endif %}
+        {% if collection_task.completed_at %}<div><dt>Collected</dt><dd>{{ collection_task.completed_at|date:"d M Y, H:i" }}</dd></div>{% endif %}
+        {% endif %}
       </dl>
       <p class="muted small">Status changes are made by the admin/collection team — users cannot modify status themselves.</p>
     </div>

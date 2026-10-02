@@ -180,6 +180,16 @@ code { background: #0f1f18; color: #c6f135; padding: 2px 8px; border-radius: 8px
 .preset-row { flex-wrap: wrap; }
 @media (max-width: 900px) { .stat-grid.six { grid-template-columns: repeat(2, 1fr); } }
 
+/* DAY 6 — collection operations (appended, earlier days untouched) */
+.prio { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 0.78rem; font-weight: 800; }
+.prio-normal { background: #e8f1fd; color: #1d3f8f; }
+.prio-high { background: #fff3c4; color: #7a5c00; }
+.prio-critical { background: #fdecec; color: #8f1d1d; }
+.filter-row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+.filter-row label { font-weight: 700; font-size: 0.85rem; display: flex; flex-direction: column; gap: 4px; min-width: 140px; }
+.status-pending { background: #fff3c4; color: #7a5c00; }
+.status-in_transit { background: #f0e6fd; color: #5b21b6; }
+
 /* RESPONSIVE */
 @media (max-width: 900px) {
   .hero-grid, .two-col { grid-template-columns: 1fr; }
