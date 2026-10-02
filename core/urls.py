@@ -1,7 +1,7 @@
 """Core page routes (Day 1 landing + Day 2 user side + Day 3 pickups/bins)."""
 from django.urls import path
 
-from . import views, views_collection
+from . import views, views_collection, views_trace
 
 urlpatterns = [
     path('', views.landing, name='landing'),
@@ -16,8 +16,10 @@ urlpatterns = [
     path('pickup/request/', views.pickup_request_view, name='pickup-request'),
     path('pickup/my/', views.pickup_my, name='pickup-my'),
     path('pickup/<int:pk>/', views.pickup_detail, name='pickup-detail'),
-    # Day 3 smart bins (public)
+    # Day 3 smart bins (public) — specific routes BEFORE <bin_id>
     path('bins/', views.bin_list, name='bin-list'),
+    path('bins/map/', views_trace.bin_map, name='bin-map'),
+    path('bins/<str:bin_id>/deposit/', views_trace.bin_deposit, name='bin-deposit'),
     path('bins/<str:bin_id>/', views.bin_detail, name='bin-detail'),
     # Day 5 alerts (public monitoring)
     path('alerts/', views.alert_list_view, name='alert-list'),
@@ -33,6 +35,9 @@ urlpatterns = [
     path('tasks/<int:pk>/start/', views_collection.task_start, name='collection-task-start'),
     path('tasks/<int:pk>/complete/', views_collection.task_complete, name='collection-task-complete'),
     path('tasks/<int:pk>/cancel/', views_collection.task_cancel, name='collection-task-cancel'),
+    # Day 7 recycling operations (staff)
+    path('recycling/', views_trace.recycling_dashboard, name='recycling-dash'),
+    path('recycling/submissions/<int:pk>/advance/', views_trace.submission_advance, name='submission-advance'),
     # Backward-compat redirects for Day 2 dashboard buttons
     path('schedule-pickup/', views.schedule_pickup_placeholder, name='schedule-pickup'),
     path('find-bins/', views.find_bins_placeholder, name='find-bins'),

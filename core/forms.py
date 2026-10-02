@@ -34,7 +34,30 @@ class ProfileForm(forms.Form):
 
 
 class EwasteSubmissionForm(forms.ModelForm):
-    """E-waste declaration — user and status are set server-side."""
+    """E-waste declaration — user/status/verification are set server-side.
+
+    Day 7: adds submission_method + bin/pickup/session routing. The bin is
+    chosen from real SmartBins (dropdown/QR/map) — never a typed raw PK —
+    and resolved to the SmartBin object in clean().
+    """
+
+    submission_method = forms.ChoiceField(
+        choices=EwasteSubmission.SubmissionMethod.choices,
+        initial=EwasteSubmission.SubmissionMethod.SMART_BIN,
+        required=False,  # missing (e.g. legacy post) defaults to PICKUP below
+        widget=forms.RadioSelect,
+    )
+    bin_id = forms.CharField(
+        max_length=30, required=False,
+        help_text='SmartBin ID, e.g. ECO-BIN-007 (pick from list, map or QR).',
+    )
+    pickup_request = forms.ModelChoiceField(
+        queryset=PickupRequest.objects.none(), required=False,
+        help_text='Optional: ride along with one of your pickup requests.',
+    )
+    session_token = forms.CharField(
+        max_length=64, required=False, widget=forms.HiddenInput,
+    )
 
     class Meta:
         model = EwasteSubmission
@@ -48,6 +71,42 @@ class EwasteSubmissionForm(forms.ModelForm):
             'condition': forms.Select(attrs={'class': 'input'}),
             'description': forms.Textarea(attrs={'class': 'input', 'rows': 3}),
         }
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Pickup choices are ALWAYS scoped to the owner (never all pickups).
+        if user is not None and getattr(user, 'is_authenticated', False):
+            self.fields['pickup_request'].queryset = PickupRequest.objects.filter(
+                user=user
+            ).exclude(status=PickupRequest.Status.CANCELLED).order_by('-created_at')
+        for name in ('category', 'quantity', 'estimated_weight',
+                     'condition', 'description'):
+            self.fields[name].widget.attrs.setdefault('class', 'input')
+        self.fields['submission_method'].widget.attrs.setdefault('class', 'method-radio')
+        self.fields['bin_id'].widget.attrs.setdefault('class', 'input')
+
+    def clean_bin_id(self):
+        return (self.cleaned_data.get('bin_id') or '').strip()
+
+    def clean(self):
+        cleaned = super().clean()
+        # Legacy/partial posts without the method radio fall back to PICKUP.
+        method = cleaned.get('submission_method') or EwasteSubmission.SubmissionMethod.PICKUP
+        cleaned['submission_method'] = method
+        bin_id = (cleaned.get('bin_id') or '').strip()
+        if method == EwasteSubmission.SubmissionMethod.SMART_BIN:
+            if not bin_id:
+                self.add_error('bin_id', 'Choose a SmartBin (list, map or QR scan).')
+                return cleaned
+            from bins.models import SmartBin
+            try:
+                cleaned['smart_bin'] = SmartBin.objects.get(bin_id=bin_id)
+            except SmartBin.DoesNotExist:
+                self.add_error(
+                    'bin_id', f'Unknown SmartBin {bin_id!r} — pick one from the map.')
+        else:
+            cleaned['smart_bin'] = None
+        return cleaned
 
     def clean_quantity(self):
         qty = self.cleaned_data['quantity']

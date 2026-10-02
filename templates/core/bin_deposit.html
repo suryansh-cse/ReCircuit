@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Deposit at {{ bin.bin_id }} — ReCircuit{% endblock %}
+{% block content %}
+<section class="section">
+  <div class="container narrow">
+    <p><a href="{% url 'bin-map' %}">← Campus map</a> · <a href="{% url 'bin-detail' bin.bin_id %}">Bin details</a></p>
+    <div class="card">
+      <div class="dash-head">
+        <div><h2>Deposit at {{ bin.bin_id }}</h2><p class="muted">{{ bin.name }} · {{ bin.location }}{% if bin.city %} · {{ bin.city }}{% endif %}</p></div>
+        <div>{% if bin.data_source == 'real' %}<span class="badge badge-real">REAL DEVICE</span>{% else %}<span class="badge">SIMULATED</span>{% endif %}</div>
+      </div>
+      <div class="stat-grid four">
+        <div class="stat"><span class="stat-value">{{ bin.fill_level }}%</span><span class="stat-label">{{ bin.status }}</span></div>
+        <div class="stat"><span class="stat-value">{{ bin.weight }} kg</span><span class="stat-label">weight</span></div>
+        <div class="stat"><span class="stat-value">{% if bin.temperature != None %}{{ bin.temperature }}°C{% else %}—{% endif %}</span><span class="stat-label">temperature</span></div>
+        <div class="stat"><span class="stat-value">{% if bin.is_online %}🟢{% else %}🔴{% endif %}</span><span class="stat-label">{% if bin.is_online %}online{% else %}offline{% endif %}</span></div>
+      </div>
+      <p class="muted small">You arrived here by scanning this bin's QR. Starting a deposit locks your next submission to <strong>{{ bin.bin_id }}</strong> for 5 minutes → <strong>✓ QR VERIFIED</strong>.</p>
+      <p class="muted small">Honest scope: QR verification proves the submission was associated with this bin through the QR flow. It does not by itself prove physical deposit.</p>
+      <form method="post">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-primary btn-block">Start 5-minute deposit session</button>
+      </form>
+    </div>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}Campus Bin Map — ReCircuit{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+{% endblock %}
+{% block content %}
+<section class="section">
+  <div class="container">
+    <div class="dash-head">
+      <div><h2>SmartBin campus map</h2><p class="muted">Every marker is a live database row. Location permission is optional — the map works without it.</p></div>
+      <div class="hero-actions">
+        <button id="geo-btn" class="btn btn-outline" type="button">Use My Current Location</button>
+        <a href="{% url 'bin-list' %}" class="btn btn-outline">List view</a>
+      </div>
+    </div>
+    <div id="geo-note" class="empty" hidden></div>
+    <div id="campus-map" class="map"></div>
+    <p class="muted small">Markers: 🟢 Normal · 🟡 Warning · 🔴 Collection Required · ⚫ Offline. Click a marker for details + QR deposit.</p>
+    <div class="card">
+      <h3>All bins</h3>
+      <table class="table">
+        <tr><th>Bin</th><th>Location</th><th>Fill</th><th>Status</th><th>Link</th><th></th></tr>
+        {% for b in bins %}
+        <tr>
+          <td><a href="{% url 'bin-detail' b.bin_id %}">{{ b.bin_id }}</a></td>
+          <td>{{ b.location }}</td>
+          <td>{{ b.fill_level }}%</td>
+          <td><span class="status status-{{ b.status_code }}">{{ b.status }}</span></td>
+          <td>{% if b.is_online %}🟢 Online{% else %}🔴 Offline{% endif %}</td>
+          <td><a href="{% url 'bin-deposit' b.bin_id %}">Scan QR →</a></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6"><div class="empty">No bins registered yet.</div></td></tr>
+        {% endfor %}
+      </table>
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+  // Day 7 map: markers from /api/bins/ (live DB). Geolocation optional.
+  (async function () {
+    const note = document.getElementById('geo-note');
+    let bins = [];
+    try {
+      const res = await fetch('/api/bins/');
+      if (res.ok) bins = await res.json();
+    } catch (e) { /* offline fallback below */ }
+    const center = bins.length ? [bins[0].latitude, bins[0].longitude] : [31.2552, 75.7037];
+    const map = L.map('campus-map').setView(center, 16);
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19, attribution: '&copy; OpenStreetMap contributors',
+    }).addTo(map);
+    const dot = (b) => !b.is_online ? '⚫' : b.fill_level >= 80 ? '🔴' : b.fill_level >= 60 ? '🟡' : '🟢';
+    const pts = [];
+    bins.forEach((b) => {
+      const m = L.marker([b.latitude, b.longitude]).addTo(map);
+      m.bindPopup(
+        '<strong>' + b.bin_id + '</strong><br>' + b.location + '<br>' +
+        'Fill: ' + b.fill_level + '% · ' + b.fill_status + '<br>' +
+        'Weight: ' + b.weight + ' kg · Temp: ' + (b.temperature !== null ? b.temperature + '°C' : '—') + '<br>' +
+        (b.is_online ? '🟢 Online' : '🔴 Offline') + ' · ' + b.data_source.toUpperCase() + '<br>' +
+        '<a href="/bins/' + b.bin_id + '/deposit/">Scan QR →</a> · <a href="/bins/' + b.bin_id + '/">Details</a>'
+      );
+      m.bindTooltip(dot(b) + ' ' + b.bin_id, { permanent: false });
+      pts.push([b.latitude, b.longitude]);
+    });
+    if (pts.length > 1) map.fitBounds(pts, { padding: [30, 30] });
+
+    document.getElementById('geo-btn').addEventListener('click', () => {
+      if (!navigator.geolocation) {
+        note.hidden = false;
+        note.textContent = 'Geolocation not supported here — the map above still works.';
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const me = [pos.coords.latitude, pos.coords.longitude];
+          L.marker(me).addTo(map).bindPopup('<strong>You are here</strong> (approx.)').openPopup();
+          if (bins.length) {
+            let best = null, bestD = 1e12;
+            const rad = (d) => d * Math.PI / 180;
+            bins.forEach((b) => {
+              const a = Math.pow(Math.sin(rad(b.latitude - me[0]) / 2), 2) +
+                Math.cos(rad(me[0])) * Math.cos(rad(b.latitude)) *
+                Math.pow(Math.sin(rad(b.longitude - me[1]) / 2), 2);
+              const d = 2 * 6371 * Math.asin(Math.sqrt(a));
+              if (d < bestD) { bestD = d; best = b; }
+            });
+            note.hidden = false;
+            note.textContent = 'Nearest bin: ' + best.bin_id + ' (~' + bestD.toFixed(1) + ' km away). Your location is NOT stored.';
+          }
+        },
+        () => {
+          note.hidden = false;
+          note.textContent = 'Location permission denied — the map above still works fine.';
+        }
+      );
+    });
+  })();
+</script>
+{% endblock %}

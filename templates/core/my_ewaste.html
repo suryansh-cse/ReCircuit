@@ -5,21 +5,25 @@
   <div class="container">
     <div class="dash-head">
       <div><h2>My e-waste</h2><p class="muted">Only your own submissions — other users' data is never shown here.</p></div>
-      <a href="{% url 'submit-ewaste' %}" class="btn btn-primary">+ New submission</a>
+      <div class="hero-actions">
+        <a href="{% url 'bin-map' %}" class="btn btn-outline">Find a bin</a>
+        <a href="{% url 'submit-ewaste' %}" class="btn btn-primary">+ New submission</a>
+      </div>
     </div>
     <div class="card">
       {% if submissions %}
       <table class="table">
-        <tr><th>ID</th><th>Category</th><th>Qty</th><th>Weight</th><th>Condition</th><th>Status</th><th>Date</th></tr>
+        <tr><th>Submission ID</th><th>Item</th><th>Qty</th><th>Weight</th><th>Bin</th><th>Time</th><th>Verification</th><th>Status</th></tr>
         {% for s in submissions %}
         <tr>
-          <td>EW-{{ s.pk|stringformat:"04d" }}</td>
+          <td>{{ s.display_id }}</td>
           <td>{{ s.get_category_display }}</td>
           <td>{{ s.quantity }}</td>
-          <td>{{ s.estimated_weight }} kg</td>
-          <td>{{ s.get_condition_display }}</td>
+          <td>{% if s.actual_weight != None %}{{ s.actual_weight }} kg{% else %}{{ s.estimated_weight }} kg{% endif %}</td>
+          <td>{% if s.smart_bin %}<a href="{% url 'bin-detail' s.smart_bin.bin_id %}">{{ s.smart_bin.bin_id }}</a>{% elif s.pickup_request %}Pickup #{{ s.pickup_request.pk }}{% else %}—{% endif %}</td>
+          <td>{{ s.created_at|date:"d M Y, H:i" }}</td>
+          <td>{% if s.verification_status == 'qr_verified' %}<span class="verify verify-yes">✓ QR VERIFIED</span>{% else %}<span class="verify verify-pending">Pending</span>{% endif %}</td>
           <td><span class="status status-{{ s.status }}">{{ s.get_status_display }}</span></td>
-          <td>{{ s.created_at|date:"d M Y" }}</td>
         </tr>
         {% endfor %}
       </table>

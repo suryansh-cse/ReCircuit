@@ -4,10 +4,64 @@
 <section class="section">
   <div class="container narrow">
     <h2>Submit e-waste</h2>
-    <p class="muted">Example: Laptop · 1 · 2.4 kg · Damaged · "Old laptop with damaged display."</p>
+    <p class="muted">Logged in as <strong>{{ user.username }}</strong> (ID assigned automatically — you never type it). Example: Laptop · 1 · 2.4 kg · Damaged.</p>
+
+    {% if session %}
+    <div class="flash flash-success">✓ QR session {{ session.display_id }} — <strong>{{ session.smart_bin.bin_id }}</strong> locked in. Submit within 5 minutes for <strong>QR VERIFIED</strong>.</div>
+    {% elif session_invalid %}
+    <div class="form-errors">Deposit session expired or invalid. <a href="{% url 'bin-map' %}">Scan the bin QR again</a> — nothing was submitted.</div>
+    {% endif %}
+
+    {% if locked_bin %}
+    <div class="card bin-pick">
+      <div class="bin-head"><strong>Smart Bin: {{ locked_bin.bin_id }}</strong><span class="badge">QR LOCKED</span></div>
+      <div class="muted small">{{ locked_bin.location }}{% if locked_bin.city %} · {{ locked_bin.city }}{% endif %}</div>
+      <div class="bin-fill"><div class="bin-fill-bar status-bg-{{ locked_bin.status_code }}" style="width: {{ locked_bin.fill_level }}%"></div></div>
+      <div class="bin-nums"><strong>{{ locked_bin.fill_level }}%</strong>
+        <span class="status status-{{ locked_bin.status_code }}">{{ locked_bin.status }}</span>
+      </div>
+    </div>
+    {% elif preselect_bin %}
+    <div class="card bin-pick">
+      <div class="bin-head"><strong>Smart Bin: {{ preselect_bin.bin_id }}</strong>
+        {% if preselect_bin.data_source == 'real' %}<span class="badge badge-real">REAL</span>{% else %}<span class="badge">SIMULATED</span>{% endif %}
+      </div>
+      <div class="muted small">{{ preselect_bin.location }}{% if preselect_bin.city %} · {{ preselect_bin.city }}{% endif %}</div>
+      <div class="bin-fill"><div class="bin-fill-bar status-bg-{{ preselect_bin.status_code }}" style="width: {{ preselect_bin.fill_level }}%"></div></div>
+      <div class="bin-nums"><strong>{{ preselect_bin.fill_level }}%</strong>
+        <span class="status status-{{ preselect_bin.status_code }}">{{ preselect_bin.status }}</span>
+      </div>
+      <p class="muted small">Tip: <a href="{% url 'bin-deposit' preselect_bin.bin_id %}">scan the QR at this bin</a> for ✓ QR VERIFIED.</p>
+    </div>
+    {% endif %}
+
     <form method="post" class="card form">
       {% csrf_token %}
+      {{ form.session_token }}
       {% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}
+
+      <h3 class="form-sub">1 · How are you submitting?</h3>
+      <div class="method-row">{{ form.submission_method }}</div>
+      {% if form.submission_method.errors %}<div class="field-error">{{ form.submission_method.errors }}</div>{% endif %}
+
+      <div id="bin-fields">
+        <label>SmartBin {{ form.bin_id }}</label>
+        {% if form.bin_id.errors %}<div class="field-error">{{ form.bin_id.errors }}</div>{% endif %}
+        <p class="muted small">
+          <a href="{% url 'bin-map' %}">View campus map</a> ·
+          {% if bins %}<label>or pick: <select id="bin-pick" class="input">
+            <option value="">— select bin —</option>
+            {% for b in bins %}<option value="{{ b.bin_id }}">{{ b.bin_id }} · {{ b.location }} ({{ b.fill_level }}%)</option>{% endfor %}
+          </select></label>{% endif %}
+        </p>
+      </div>
+
+      <div id="pickup-fields">
+        <label>Pickup request (optional) {{ form.pickup_request }}</label>
+        {% if form.pickup_request.errors %}<div class="field-error">{{ form.pickup_request.errors }}</div>{% endif %}
+      </div>
+
+      <h3 class="form-sub">2 · E-waste details</h3>
       <label>Category {{ form.category }}</label>
       {% if form.category.errors %}<div class="field-error">{{ form.category.errors }}</div>{% endif %}
       <label>Quantity {{ form.quantity }}</label>
@@ -18,8 +72,33 @@
       {% if form.condition.errors %}<div class="field-error">{{ form.condition.errors }}</div>{% endif %}
       <label>Description {{ form.description }}</label>
       {% if form.description.errors %}<div class="field-error">{{ form.description.errors }}</div>{% endif %}
-      <button type="submit" class="btn btn-primary btn-block">Submit E-Waste</button>
+      <button type="submit" class="btn btn-primary btn-block">Confirm E-Waste Submission</button>
     </form>
   </div>
 </section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // Toggle bin vs pickup sections by chosen method (server re-validates).
+  (function () {
+    const radios = document.querySelectorAll('input[name="submission_method"]');
+    const binF = document.getElementById('bin-fields');
+    const pickF = document.getElementById('pickup-fields');
+    function sync() {
+      const v = document.querySelector('input[name="submission_method"]:checked');
+      const isBin = !v || v.value === 'smart_bin';
+      binF.style.display = isBin ? '' : 'none';
+      pickF.style.display = isBin ? 'none' : '';
+    }
+    radios.forEach((r) => r.addEventListener('change', sync));
+    sync();
+    const pick = document.getElementById('bin-pick');
+    if (pick) {
+      pick.addEventListener('change', () => {
+        document.getElementById('id_bin_id').value = pick.value;
+      });
+    }
+  })();
+</script>
 {% endblock %}

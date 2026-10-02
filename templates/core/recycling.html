@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}Recycling Operations — ReCircuit{% endblock %}
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+{% endblock %}
+{% block content %}
+<section class="section">
+  <div class="container">
+    <div class="dash-head">
+      <div><h2>Recycling operations</h2><p class="muted">Every number is a live database aggregate — 0 means no data, not a placeholder.</p></div>
+      <div class="hero-actions"><a href="{% url 'collections-ops' %}" class="btn btn-outline">Collection ops</a></div>
+    </div>
+
+    <div class="stat-grid six">
+      <div class="stat"><span class="stat-value">{{ summary.total_submissions }}</span><span class="stat-label">total submissions</span></div>
+      <div class="stat"><span class="stat-value">{{ summary.total_weight }} kg</span><span class="stat-label">total weight</span></div>
+      <div class="stat"><span class="stat-value">{{ summary.by_status.collected.count }}</span><span class="stat-label">collected</span></div>
+      <div class="stat"><span class="stat-value">{{ summary.by_status.processing.count }}</span><span class="stat-label">processing</span></div>
+      <div class="stat"><span class="stat-value">{{ summary.by_status.recycled.count }}</span><span class="stat-label">recycled</span></div>
+      <div class="stat"><span class="stat-value">{{ summary.qr_verified }}</span><span class="stat-label">QR verified</span></div>
+    </div>
+    <div class="stat-grid four">
+      <div class="stat"><span class="stat-value">{{ summary.today }}</span><span class="stat-label">today</span></div>
+      <div class="stat"><span class="stat-value">{{ summary.this_week }}</span><span class="stat-label">this week</span></div>
+      <div class="stat"><span class="stat-value">{{ summary.this_month }}</span><span class="stat-label">this month</span></div>
+      <div class="stat"><span class="stat-value">{{ summary.by_status.recycled.weight }} kg</span><span class="stat-label">recycled weight</span></div>
+    </div>
+
+    <div class="card">
+      <h3>Weight by category (kg)</h3>
+      <canvas id="ch-cat" height="120"></canvas>
+    </div>
+
+    <div class="card">
+      <form method="get" class="filter-row">
+        <label>Status
+          <select name="status" class="input">
+            <option value="">All</option>
+            {% for v,l in status_choices %}<option value="{{ v }}"{% if status_f == v %} selected{% endif %}>{{ l }}</option>{% endfor %}
+          </select>
+        </label>
+        <button class="btn btn-primary" type="submit">Filter</button>
+        <a href="{% url 'recycling-dash' %}" class="btn btn-outline">Reset</a>
+      </form>
+    </div>
+
+    <div class="card">
+      <h3>Pipeline — SUBMITTED → COLLECTED → PROCESSING → RECYCLED</h3>
+      {% if submissions %}
+      <table class="table">
+        <tr><th>ID</th><th>User</th><th>Item</th><th>Weight</th><th>Bin / Pickup</th><th>Verification</th><th>Status</th><th>Next step</th></tr>
+        {% for s in submissions %}
+        <tr>
+          <td>{{ s.display_id }}</td>
+          <td>{{ s.user.username }}</td>
+          <td>{{ s.get_category_display }} × {{ s.quantity }}</td>
+          <td>{% if s.actual_weight != None %}{{ s.actual_weight }}{% else %}{{ s.estimated_weight }}{% endif %} kg</td>
+          <td>{% if s.smart_bin %}{{ s.smart_bin.bin_id }}{% elif s.pickup_request %}Pickup #{{ s.pickup_request.pk }}{% else %}—{% endif %}</td>
+          <td>{% if s.verification_status == 'qr_verified' %}<span class="verify verify-yes">✓ QR</span>{% else %}<span class="verify verify-pending">Pending</span>{% endif %}</td>
+          <td><span class="status status-{{ s.status }}">{{ s.get_status_display }}</span></td>
+          <td>
+            {% if s.status == 'submitted' %}
+            <form method="post" action="{% url 'submission-advance' s.pk %}">{% csrf_token %}<input type="hidden" name="action" value="collected" /><button class="btn btn-outline" type="submit">Mark collected</button></form>
+            {% elif s.status == 'collected' %}
+            <form method="post" action="{% url 'submission-advance' s.pk %}">{% csrf_token %}<input type="hidden" name="action" value="processing" /><input name="notes" class="input" placeholder="notes (opt)" style="max-width:130px" /><button class="btn btn-outline" type="submit">Start processing</button></form>
+            {% elif s.status == 'processing' %}
+            <form method="post" action="{% url 'submission-advance' s.pk %}">{% csrf_token %}<input type="hidden" name="action" value="recycled" /><input name="actual_weight" class="input" placeholder="kg" type="number" step="0.1" min="0.01" style="max-width:80px" /><input name="partner" class="input" placeholder="facility" style="max-width:110px" /><button class="btn btn-primary" type="submit">Recycle</button></form>
+            {% else %}<span class="muted">done</span>{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </table>
+      {% else %}
+      <div class="empty">No submissions in this view yet.</div>
+      {% endif %}
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // Category chart from live JSON (same data as the table above).
+  (async function () {
+    try {
+      const res = await fetch('/api/analytics/recycling/');
+      if (!res.ok) return;
+      const d = await res.json();
+      new Chart(document.getElementById('ch-cat'), {
+        type: 'bar',
+        data: {
+          labels: d.by_category.map((c) => c.label),
+          datasets: [
+            { label: 'kg', data: d.by_category.map((c) => c.weight) },
+            { label: 'items', data: d.by_category.map((c) => c.count) },
+          ],
+        },
+        options: { responsive: true, scales: { x: { ticks: { maxTicksLimit: 9 } } } },
+      });
+    } catch (e) { /* charts are optional enhancement */ }
+  })();
+</script>
+{% endblock %}

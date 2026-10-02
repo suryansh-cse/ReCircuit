@@ -2,6 +2,7 @@
 {% block title %}{{ bin.bin_id }} — ReCircuit{% endblock %}
 {% block extra_head %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 {% endblock %}
 {% block content %}
 <section class="section">
@@ -53,6 +54,17 @@
         <div><h4>Fill level %</h4><canvas id="ch-fill" height="140"></canvas></div>
         <div><h4>Weight kg</h4><canvas id="ch-weight" height="140"></canvas></div>
         <div><h4>Temperature °C</h4><canvas id="ch-temp" height="140"></canvas></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Deposit e-waste here</h3>
+      <div class="qr-row">
+        <div id="bin-qr" class="qr-box" title="QR for {{ bin.bin_id }} deposit page"></div>
+        <div>
+          <p class="muted small">Scan with your phone camera to open the deposit page for <strong>{{ bin.bin_id }}</strong>, then confirm your e-waste → <strong>✓ QR VERIFIED</strong>.</p>
+          <p class="hero-actions"><a class="btn btn-primary" href="{% url 'bin-deposit' bin.bin_id %}">Scan QR / Deposit here</a></p>
+          <p class="muted small">QR target: <code>/bins/{{ bin.bin_id }}/deposit/</code></p>
+        </div>
       </div>
     </div>
     {% if user.is_staff %}
@@ -117,6 +129,16 @@
     } catch (e) { document.getElementById('charts-empty').hidden = false; }
   })();
 
+  // Day 7 QR: static deposit URL per bin (printable sticker). Fallback link shown if CDN blocked.
+  (function () {
+    try {
+      if (typeof QRCode === 'undefined') return;
+      new QRCode(document.getElementById('bin-qr'), {
+        text: window.location.origin + '/bins/{{ bin.bin_id }}/deposit/',
+        width: 140, height: 140, correctLevel: QRCode.CorrectLevel.M,
+      });
+    } catch (e) { /* plain link above remains usable */ }
+  })();
   // Day 5 staff demo presets → simulate endpoint (SIMULATED, explicit values).
   document.querySelectorAll('[data-sim]').forEach((btn) => {
     btn.addEventListener('click', async () => {

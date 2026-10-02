@@ -49,6 +49,8 @@ def dashboard_stats(request):
 
     from .alerts import monitoring_summary
     monitoring = monitoring_summary()
+    from waste.recycling import recycling_summary
+    recycling = recycling_summary()
 
     return Response({
         'total_users': total_users,
@@ -66,6 +68,12 @@ def dashboard_stats(request):
         'active_alerts': monitoring['active_alerts'],
         'critical_alerts': monitoring['critical_alerts'],
         'warning_alerts': monitoring['warning_alerts'],
+        # Day 7 recycling aggregates (additive — Day 1 fields unchanged)
+        'total_submissions': recycling['total_submissions'],
+        'recycled_count': recycling['by_status']['recycled']['count'],
+        'recycled_weight': recycling['by_status']['recycled']['weight'],
+        'processing_count': recycling['by_status']['processing']['count'],
+        'qr_verified': recycling['qr_verified'],
     })
 
 
@@ -497,3 +505,209 @@ def task_complete_api(request, pk):
 def task_cancel_api(request, pk):
     """POST /api/collection-tasks/<id>/cancel/ — staff only."""
     return _operate_api(request, pk, 'cancel')
+
+
+# ---------- Day 7: traceable e-waste + deposit + recycling ----------
+
+def _ewaste_qs_for(user):
+    """Staff see all (explicit ?scope=all); everyone else sees only own."""
+    from core.models import is_ops_staff
+    from waste.models import EwasteSubmission
+    qs = EwasteSubmission.objects.select_related(
+        'smart_bin', 'pickup_request', 'user').order_by('-created_at')
+    if is_ops_staff(user):
+        return qs
+    return qs.filter(user=user)
+
+
+@api_view(['GET', 'POST'])
+def ewaste_list_create_api(request):
+    """GET /api/ewaste/ (own; staff ?scope=all) · POST (auth, owner=caller)."""
+    from core.forms import EwasteSubmissionForm
+    from core.models import is_ops_staff
+    from waste.models import EwasteSubmission
+    from waste.recycling import get_valid_session, submission_payload
+    if not request.user.is_authenticated:
+        return Response({'error': 'Authentication required.'},
+                        status=status.HTTP_403_FORBIDDEN)
+    if request.method == 'GET':
+        qs = _ewaste_qs_for(request.user)
+        if is_ops_staff(request.user) and request.GET.get('scope') != 'all':
+            qs = qs.filter(user=request.user)
+        return Response([submission_payload(s) for s in qs[:100]])
+    # POST — same validation as the HTML form, owner forced server-side.
+    data = request.data if isinstance(request.data, dict) else {}
+    form = EwasteSubmissionForm(data, user=request.user)
+    token = (data.get('session_token') or '').strip()
+    session = get_valid_session(request.user, token) if token else None
+    if token and session is None:
+        return Response(
+            {'error': 'Deposit session expired or invalid — scan again.'},
+            status=status.HTTP_400_BAD_REQUEST)
+    if not form.is_valid():
+        return Response({'error': 'Invalid submission.', 'details': form.errors},
+                        status=status.HTTP_400_BAD_REQUEST)
+    submission = form.save(commit=False)
+    submission.user = request.user
+    submission.status = EwasteSubmission.Status.SUBMITTED
+    submission.submission_method = form.cleaned_data['submission_method']
+    submission.smart_bin = form.cleaned_data.get('smart_bin')
+    submission.pickup_request = form.cleaned_data.get('pickup_request')
+    if submission.submission_method == EwasteSubmission.SubmissionMethod.PICKUP:
+        submission.smart_bin = None
+    if session is not None:
+        if (submission.smart_bin_id is None
+                or submission.smart_bin_id != session.smart_bin_id):
+            return Response(
+                {'error': 'Deposit session is for a different bin.'},
+                status=status.HTTP_400_BAD_REQUEST)
+        submission.deposit_session = session
+        submission.verification_status = (
+            EwasteSubmission.VerificationStatus.QR_VERIFIED)
+    submission.save()
+    if session is not None:
+        session.mark_used(submission)
+    return Response(submission_payload(submission),
+                    status=status.HTTP_201_CREATED)
+
+
+@api_view(['GET'])
+def ewaste_detail_api(request, pk):
+    """GET /api/ewaste/<id>/ — owner or staff; 404 otherwise (no leaking)."""
+    from waste.models import EwasteSubmission
+    from waste.recycling import submission_payload
+    if not request.user.is_authenticated:
+        return Response({'error': 'Authentication required.'},
+                        status=status.HTTP_403_FORBIDDEN)
+    try:
+        sub = EwasteSubmission.objects.select_related(
+            'smart_bin', 'pickup_request', 'user').get(pk=pk)
+    except EwasteSubmission.DoesNotExist:
+        return Response({'error': 'Submission not found.'},
+                        status=status.HTTP_404_NOT_FOUND)
+    from core.models import is_ops_staff
+    if not is_ops_staff(request.user) and sub.user_id != request.user.pk:
+        return Response({'error': 'Submission not found.'},
+                        status=status.HTTP_404_NOT_FOUND)
+    return Response(submission_payload(sub))
+
+
+@api_view(['POST'])
+def ewaste_advance_api(request, pk):
+    """POST /api/ewaste/<id>/advance/ — staff moves lifecycle one step."""
+    from core.models import is_ops_staff
+    from waste.models import EwasteSubmission
+    from waste.recycling import (
+        SubmissionTransitionError, advance_submission, submission_payload,
+    )
+    if not request.user.is_authenticated or not is_ops_staff(request.user):
+        return Response({'error': 'Staff permission required.'},
+                        status=status.HTTP_403_FORBIDDEN)
+    try:
+        sub = EwasteSubmission.objects.get(pk=pk)
+    except EwasteSubmission.DoesNotExist:
+        return Response({'error': 'Submission not found.'},
+                        status=status.HTTP_404_NOT_FOUND)
+    data = request.data if isinstance(request.data, dict) else {}
+    try:
+        weight_raw = (data.get('actual_weight') or '')
+        advance_submission(
+            sub, (data.get('action') or '').strip(), by_user=request.user,
+            actual_weight=float(weight_raw) if str(weight_raw).strip() else None,
+            partner=str(data.get('partner') or '').strip(),
+            notes=str(data.get('notes') or '').strip(),
+        )
+    except (SubmissionTransitionError, ValueError, TypeError) as exc:
+        return Response({'error': str(exc)},
+                        status=status.HTTP_400_BAD_REQUEST)
+    sub.refresh_from_db()
+    return Response(submission_payload(sub))
+
+
+@api_view(['POST'])
+def deposit_start_api(request):
+    """POST /api/deposit/start/ {"bin_id": "ECO-BIN-007"} → 5-min session."""
+    from waste.recycling import start_deposit_session
+    if not request.user.is_authenticated:
+        return Response({'error': 'Authentication required.'},
+                        status=status.HTTP_403_FORBIDDEN)
+    data = request.data if isinstance(request.data, dict) else {}
+    bin_id = str(data.get('bin_id') or '').strip()
+    try:
+        smart_bin = SmartBin.objects.get(bin_id=bin_id)
+    except SmartBin.DoesNotExist:
+        return Response({'error': f'Unknown SmartBin {bin_id!r}.'},
+                        status=status.HTTP_404_NOT_FOUND)
+    session = start_deposit_session(request.user, smart_bin)
+    return Response({
+        'token': session.token,
+        'display_id': session.display_id,
+        'bin_id': smart_bin.bin_id,
+        'expires_at': session.expires_at.isoformat(),
+        'submit_url': f'/submit/?bin={smart_bin.bin_id}&session={session.token}',
+    }, status=status.HTTP_201_CREATED)
+
+
+@api_view(['GET'])
+def bin_qr_api(request, bin_id):
+    """GET /api/bins/<id>/qr/ — public QR payload (static deposit URL)."""
+    try:
+        smart_bin = SmartBin.objects.get(bin_id=bin_id)
+    except SmartBin.DoesNotExist:
+        return Response({'error': 'Smart bin not found.'},
+                        status=status.HTTP_404_NOT_FOUND)
+    payload = _bin_payload(smart_bin)
+    payload['deposit_url'] = request.build_absolute_uri(f'/bins/{bin_id}/deposit/')
+    return Response(payload)
+
+
+def _recycling_payload(record):
+    return {
+        'id': record.pk,
+        'submission_id': record.submission_id,
+        'collection_task_id': record.collection_task_id,
+        'category': record.category,
+        'processing_status': record.processing_status,
+        'received_weight': record.received_weight,
+        'recycling_partner': record.recycling_partner,
+        'notes': record.notes,
+        'processed_at': record.processed_at.isoformat() if record.processed_at else None,
+        'recycled_at': record.recycled_at.isoformat() if record.recycled_at else None,
+        'created_at': record.created_at.isoformat(),
+    }
+
+
+@api_view(['GET'])
+def recycling_list_api(request):
+    """GET /api/recycling/ — staff only (operational ledger)."""
+    from core.models import is_ops_staff
+    from waste.models import RecyclingRecord
+    if not request.user.is_authenticated or not is_ops_staff(request.user):
+        return Response({'error': 'Staff permission required.'},
+                        status=status.HTTP_403_FORBIDDEN)
+    records = RecyclingRecord.objects.select_related(
+        'submission').order_by('-created_at')[:100]
+    return Response([_recycling_payload(r) for r in records])
+
+
+@api_view(['GET'])
+def recycling_detail_api(request, pk):
+    """GET /api/recycling/<id>/ — staff only."""
+    from core.models import is_ops_staff
+    from waste.models import RecyclingRecord
+    if not request.user.is_authenticated or not is_ops_staff(request.user):
+        return Response({'error': 'Staff permission required.'},
+                        status=status.HTTP_403_FORBIDDEN)
+    try:
+        record = RecyclingRecord.objects.get(pk=pk)
+    except RecyclingRecord.DoesNotExist:
+        return Response({'error': 'Recycling record not found.'},
+                        status=status.HTTP_404_NOT_FOUND)
+    return Response(_recycling_payload(record))
+
+
+@api_view(['GET'])
+def analytics_recycling_api(request):
+    """GET /api/analytics/recycling/ — public aggregates only (no PII)."""
+    from waste.recycling import recycling_summary
+    return Response(recycling_summary())

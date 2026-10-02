@@ -4,8 +4,8 @@ from django.contrib import admin
 from .models import Alert, Profile
 from bins.models import SmartBin, Telemetry
 from waste.models import (
-    Collection, CollectionTask, EwasteSubmission, PickupRequest,
-    RecyclingRecord,
+    Collection, CollectionTask, DepositSession, EwasteSubmission,
+    PickupRequest, RecyclingRecord,
 )
 
 
@@ -37,8 +37,22 @@ class TelemetryAdmin(admin.ModelAdmin):
 
 @admin.register(EwasteSubmission)
 class EwasteSubmissionAdmin(admin.ModelAdmin):
-    list_display = ('id', 'user', 'category', 'quantity', 'estimated_weight', 'status', 'created_at')
-    list_filter = ('category', 'status')
+    list_display = ('id', 'user', 'category', 'quantity', 'estimated_weight',
+                    'smart_bin', 'submission_method', 'verification_status',
+                    'status', 'created_at')
+    list_filter = ('category', 'status', 'submission_method',
+                   'verification_status')
+    search_fields = ('user__username', 'smart_bin__bin_id', 'category')
+    readonly_fields = ('created_at', 'updated_at')
+
+
+@admin.register(DepositSession)
+class DepositSessionAdmin(admin.ModelAdmin):
+    list_display = ('id', 'user', 'smart_bin', 'is_completed',
+                    'created_at', 'expires_at', 'submission')
+    list_filter = ('is_completed',)
+    search_fields = ('user__username', 'smart_bin__bin_id', 'token')
+    readonly_fields = ('token', 'created_at')
 
 
 @admin.register(PickupRequest)
@@ -67,8 +81,12 @@ class CollectionTaskAdmin(admin.ModelAdmin):
 
 @admin.register(RecyclingRecord)
 class RecyclingRecordAdmin(admin.ModelAdmin):
-    list_display = ('id', 'collection', 'processing_status', 'received_weight', 'created_at')
+    list_display = ('id', 'submission', 'collection', 'collection_task',
+                    'processing_status', 'received_weight', 'recycling_partner',
+                    'created_at')
     list_filter = ('processing_status',)
+    search_fields = ('submission__user__username', 'recycling_partner')
+    readonly_fields = ('created_at', 'updated_at')
 
 
 @admin.register(Alert)

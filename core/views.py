@@ -116,28 +116,93 @@ def dashboard(request):
 
 @login_required
 def submit_ewaste(request):
-    """Save a real EwasteSubmission row owned by request.user."""
+    """Traceable e-waste submission (Day 7).
+
+    Owner is ALWAYS request.user (never a typed ID). SMART_BIN needs a
+    real SmartBin; QR_VERIFIED is granted ONLY through a valid deposit
+    session owned by this user for that bin — expired/foreign tokens are
+    rejected and nothing is created from them.
+    """
+    from bins.models import SmartBin
+    from waste.models import EwasteSubmission
+    from waste.recycling import get_valid_session
+
+    preselect_bin_id = (request.GET.get('bin') or request.POST.get('bin_id') or '').strip()
+    raw_token = (request.GET.get('session') or request.POST.get('session_token') or '').strip()
+    session = get_valid_session(request.user, raw_token) if raw_token else None
+    session_invalid = bool(raw_token and session is None)
+    # A valid session locks the bin (prevents claiming a different bin).
+    locked_bin = session.smart_bin if session else None
+    preselect_bin = locked_bin
+    if preselect_bin is None and preselect_bin_id:
+        preselect_bin = SmartBin.objects.filter(bin_id=preselect_bin_id).first()
+
     if request.method == 'POST':
-        form = EwasteSubmissionForm(request.POST)
-        if form.is_valid():
+        form = EwasteSubmissionForm(request.POST, user=request.user)
+        if session_invalid:
+            form.add_error(
+                None,
+                'Deposit session expired or invalid — scan the bin QR again. '
+                'Nothing was submitted.')
+        if form.is_valid() and not session_invalid:
             submission = form.save(commit=False)
             submission.user = request.user  # never trust client for ownership
             submission.status = EwasteSubmission.Status.SUBMITTED
+            submission.submission_method = form.cleaned_data['submission_method']
+            submission.smart_bin = form.cleaned_data.get('smart_bin')
+            submission.pickup_request = form.cleaned_data.get('pickup_request')
+            if submission.submission_method == EwasteSubmission.SubmissionMethod.PICKUP:
+                submission.smart_bin = None
+            if session is not None:
+                # Session bin must match the chosen bin (no cross-bin use).
+                if (submission.smart_bin_id is None
+                        or submission.smart_bin_id != session.smart_bin_id):
+                    form.add_error(
+                        None,
+                        'Deposit session is for a different bin — scan again.')
+                    bins = SmartBin.objects.order_by('bin_id')
+                    return render(request, 'core/submit.html', {
+                        'form': form, 'bins': bins,
+                        'preselect_bin': preselect_bin, 'session': None,
+                        'session_invalid': True, 'locked_bin': None,
+                    })
+                submission.deposit_session = session
+                submission.verification_status = (
+                    EwasteSubmission.VerificationStatus.QR_VERIFIED)
             submission.save()
+            if session is not None:
+                session.mark_used(submission)
             messages.success(
                 request,
-                f'E-waste submitted! ID EW-{submission.pk:04d} ({submission.get_category_display()}).',
+                f'SUCCESS — Submission {submission.display_id} created. '
+                f'Bin: {submission.smart_bin.bin_id if submission.smart_bin else "—"} · '
+                f'Verification: {submission.get_verification_status_display()}.',
             )
             return redirect('my-ewaste')
     else:
-        form = EwasteSubmissionForm()
-    return render(request, 'core/submit.html', {'form': form})
+        initial = {}
+        if preselect_bin:
+            initial['bin_id'] = preselect_bin.bin_id
+            if session is not None:
+                initial['submission_method'] = (
+                    EwasteSubmission.SubmissionMethod.SMART_BIN)
+        if raw_token:
+            initial['session_token'] = raw_token
+        form = EwasteSubmissionForm(initial=initial, user=request.user)
+    bins = SmartBin.objects.order_by('bin_id')
+    return render(request, 'core/submit.html', {
+        'form': form, 'bins': bins,
+        'preselect_bin': preselect_bin, 'session': session,
+        'session_invalid': session_invalid, 'locked_bin': locked_bin,
+    })
 
 
 @login_required
 def my_ewaste(request):
     """Owner-only list — users can never see another user's rows."""
-    submissions = EwasteSubmission.objects.filter(user=request.user).order_by('-created_at')
+    submissions = EwasteSubmission.objects.filter(
+        user=request.user
+    ).select_related('smart_bin', 'pickup_request').order_by('-created_at')
     return render(request, 'core/my_ewaste.html', {'submissions': submissions})
 
 

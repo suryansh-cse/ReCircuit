@@ -190,6 +190,19 @@ code { background: #0f1f18; color: #c6f135; padding: 2px 8px; border-radius: 8px
 .status-pending { background: #fff3c4; color: #7a5c00; }
 .status-in_transit { background: #f0e6fd; color: #5b21b6; }
 
+/* DAY 7 — traceability: map, QR, verification, method picker (appended) */
+.map { height: 420px; border-radius: var(--radius); border: 1px solid var(--line); margin-bottom: 18px; z-index: 1; }
+.qr-row { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
+.qr-box { width: 150px; height: 150px; display: grid; place-items: center; background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 5px; }
+.qr-box img, .qr-box canvas { max-width: 100%; }
+.bin-pick { border-left: 4px solid var(--primary); }
+.method-row { display: flex; gap: 14px; flex-wrap: wrap; margin: 6px 0 4px; }
+.method-row label { display: inline-flex; gap: 6px; align-items: center; font-weight: 700; background: #f2f7f3; border: 1px solid var(--line); border-radius: 999px; padding: 8px 16px; cursor: pointer; }
+.verify { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 0.78rem; font-weight: 800; }
+.verify-yes { background: #e3f6ec; color: #0b5c36; }
+.verify-pending { background: #fff3c4; color: #7a5c00; }
+.status-submitted { background: #fff3c4; color: #7a5c00; }
+
 /* RESPONSIVE */
 @media (max-width: 900px) {
   .hero-grid, .two-col { grid-template-columns: 1fr; }

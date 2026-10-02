@@ -175,6 +175,14 @@ def complete_task(task, by_user=None):
     task.completed_at = timezone.now()
     task.save(update_fields=['status', 'completed_at', 'updated_at'])
     _sync_pickup(task, 'collected')
+    # Day 7: linked e-waste submissions ride along to COLLECTED (opens
+    # their recycling ledger rows). Failure-safe — collection truth lives
+    # in the task, never let downstream errors break it.
+    try:
+        from waste.recycling import advance_pickup_submissions
+        advance_pickup_submissions(task)
+    except Exception:
+        pass
     # Resolve the linked fill alert + any active fill alert for the bin.
     resolved = []
     candidates = []
