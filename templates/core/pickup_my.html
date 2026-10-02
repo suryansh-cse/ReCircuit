@@ -10,14 +10,16 @@
     <div class="card">
       {% if active_pickups %}
       <table class="table">
-        <tr><th>Pickup</th><th>Item</th><th>Weight</th><th>Scheduled</th><th>Status</th></tr>
+        <tr><th>Pickup</th><th>Item</th><th>Weight</th><th>Address</th><th>Scheduled</th><th>Status</th><th>Collection</th></tr>
         {% for p in active_pickups %}
         <tr>
           <td><a href="{% url 'pickup-detail' p.pk %}">{{ p.display_id }}</a></td>
           <td>{{ p.get_e_waste_category_display }}</td>
           <td>{{ p.estimated_weight }} kg</td>
+          <td>{{ p.pickup_address }}{% if p.city %}, {{ p.city }}{% endif %}</td>
           <td>{{ p.preferred_date|date:"d M Y" }} · {{ p.preferred_time }}</td>
           <td><span class="status status-{{ p.status }}">{{ p.get_status_display }}</span></td>
+          <td>{% with task=p.collection_tasks.all.0 %}{% if task %}<span class="status status-{{ task.status }}">{{ task.get_status_display }}</span>{% else %}<span class="muted">Waiting for team</span>{% endif %}{% endwith %}</td>
         </tr>
         {% endfor %}
       </table>

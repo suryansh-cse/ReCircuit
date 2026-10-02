@@ -63,7 +63,7 @@
         <div>
           <p class="muted small">Scan with your phone camera to open the deposit page for <strong>{{ bin.bin_id }}</strong>, then confirm your e-waste → <strong>✓ QR VERIFIED</strong>.</p>
           <p class="hero-actions"><a class="btn btn-primary" href="{% url 'bin-deposit' bin.bin_id %}">Scan QR / Deposit here</a></p>
-          <p class="muted small">QR target: <code>/bins/{{ bin.bin_id }}/deposit/</code></p>
+          <p class="muted small"><a href="{% url 'bin-deposit' bin.bin_id %}">Open the deposit page for this bin →</a></p>
         </div>
       </div>
     </div>

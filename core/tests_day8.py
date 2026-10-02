@@ -275,3 +275,83 @@ class CollectorVisibilityTests(TestCase):
         self.assertIn('12 Green St', content)
         self.assertIn('Laptop', content)
         self.assertIn(task.display_id, content)
+
+
+class PickupDownstreamSyncTests(TestCase):
+    """Day 8 fix: COLLECTED -> PROCESSING -> RECYCLED reaches the pickup."""
+
+    def _full_chain(self):
+        from waste.collections import assign_task, complete_task, start_task
+        from waste.recycling import advance_submission
+        user = make_user('d8u11')
+        col = make_user('d8c11', collector=True)
+        staff = make_user('d8s11', staff=True)
+        pickup = make_pickup(user)
+        task, _ = ensure_pickup_task(pickup)
+        sub = EwasteSubmission.objects.create(
+            user=user, category='laptop', quantity=1, estimated_weight=2.4,
+            condition='damaged', pickup_request=pickup)
+        assign_task(task, col)
+        start_task(task, by_user=col)
+        complete_task(task, by_user=col)
+        return user, col, staff, pickup, task, sub
+
+    def test_11_pickup_follows_submission_downstream(self):
+        from waste.recycling import advance_submission
+        user, col, staff, pickup, task, sub = self._full_chain()
+        pickup.refresh_from_db()
+        self.assertEqual(pickup.status, 'collected')
+        advance_submission(sub, 'processing', by_user=staff)
+        pickup.refresh_from_db()
+        self.assertEqual(pickup.status, 'processing')
+        advance_submission(sub, 'recycled', by_user=staff, actual_weight=2.2)
+        pickup.refresh_from_db()
+        self.assertEqual(pickup.status, 'recycled')
+
+    def test_11b_user_and_ops_see_recycled_pickup(self):
+        from waste.recycling import advance_submission
+        user, col, staff, pickup, task, sub = self._full_chain()
+        advance_submission(sub, 'processing', by_user=staff)
+        advance_submission(sub, 'recycled', by_user=staff, actual_weight=2.2)
+        c = Client()
+        c.force_login(user)
+        mine = c.get('/pickup/my/').content.decode()
+        self.assertIn(pickup.display_id, mine)
+        self.assertIn('12 Green St', mine)
+        self.assertIn('Recycled', mine)
+        detail = c.get(f'/pickup/{pickup.pk}/').content.decode()
+        self.assertIn('Recycled', detail)
+        c.force_login(staff)
+        ops = c.get('/operations/').content.decode()
+        self.assertIn(pickup.display_id, ops)
+        self.assertIn('Recycled', ops)
+
+    def test_11c_sync_never_regresses_or_revives_cancelled(self):
+        from waste.recycling import (
+            SubmissionTransitionError,
+            advance_submission,
+            sync_pickup_from_submission,
+        )
+        user, col, staff, pickup, task, sub = self._full_chain()
+        # Cancelled pickups are untouched.
+        pickup.status = 'cancelled'
+        pickup.save(update_fields=['status'])
+        sub.status = 'processing'
+        self.assertFalse(sync_pickup_from_submission(sub))
+        pickup.refresh_from_db()
+        self.assertEqual(pickup.status, 'cancelled')
+        # Forward-only: an older stage never drags the pickup back.
+        pickup.status = 'recycled'
+        pickup.save(update_fields=['status'])
+        sub.status = 'processing'
+        self.assertFalse(sync_pickup_from_submission(sub))
+        pickup.refresh_from_db()
+        self.assertEqual(pickup.status, 'recycled')
+
+    def test_11d_my_pickups_shows_address_and_collection(self):
+        user, col, staff, pickup, task, sub = self._full_chain()
+        c = Client()
+        c.force_login(user)
+        content = c.get('/pickup/my/').content.decode()
+        for needle in ('Address', 'Collection', '12 Green St', 'Collected'):
+            self.assertIn(needle, content)

@@ -48,16 +48,18 @@
       <h3>Pipeline — SUBMITTED → COLLECTED → PROCESSING → RECYCLED</h3>
       {% if submissions %}
       <table class="table">
-        <tr><th>ID</th><th>User</th><th>Item</th><th>Weight</th><th>Bin / Pickup</th><th>Verification</th><th>Status</th><th>Next step</th></tr>
+        <tr><th>ID</th><th>User</th><th>Item</th><th>Weight</th><th>Bin / Pickup</th><th>Method</th><th>Verification</th><th>Status</th><th>Submitted</th><th>Next step</th></tr>
         {% for s in submissions %}
         <tr>
           <td>{{ s.display_id }}</td>
           <td>{{ s.user.username }}</td>
           <td>{{ s.get_category_display }} × {{ s.quantity }}</td>
           <td>{% if s.actual_weight != None %}{{ s.actual_weight }}{% else %}{{ s.estimated_weight }}{% endif %} kg</td>
-          <td>{% if s.smart_bin %}{{ s.smart_bin.bin_id }}{% elif s.pickup_request %}Pickup #{{ s.pickup_request.pk }}{% else %}—{% endif %}</td>
+          <td>{% if s.smart_bin %}{{ s.smart_bin.bin_id }}{% elif s.pickup_request %}{{ s.pickup_request.display_id }}{% else %}—{% endif %}</td>
+          <td>{{ s.get_submission_method_display }}</td>
           <td>{% if s.verification_status == 'qr_verified' %}<span class="verify verify-yes">✓ QR</span>{% else %}<span class="verify verify-pending">Pending</span>{% endif %}</td>
           <td><span class="status status-{{ s.status }}">{{ s.get_status_display }}</span></td>
+          <td>{{ s.created_at|date:"d M Y, H:i" }}</td>
           <td>
             {% if s.status == 'submitted' %}
             <form method="post" action="{% url 'submission-advance' s.pk %}">{% csrf_token %}<input type="hidden" name="action" value="collected" /><button class="btn btn-outline" type="submit">Mark collected</button></form>

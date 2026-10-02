@@ -20,7 +20,7 @@
           <td>{{ s.get_category_display }}</td>
           <td>{{ s.quantity }}</td>
           <td>{% if s.actual_weight != None %}{{ s.actual_weight }} kg{% else %}{{ s.estimated_weight }} kg{% endif %}</td>
-          <td>{% if s.smart_bin %}<a href="{% url 'bin-detail' s.smart_bin.bin_id %}">{{ s.smart_bin.bin_id }}</a>{% elif s.pickup_request %}Pickup #{{ s.pickup_request.pk }}{% else %}—{% endif %}</td>
+          <td>{% if s.smart_bin %}<a href="{% url 'bin-detail' s.smart_bin.bin_id %}">{{ s.smart_bin.bin_id }}</a>{% elif s.pickup_request %}<a href="{% url 'pickup-detail' s.pickup_request.pk %}">{{ s.pickup_request.display_id }}</a>{% else %}—{% endif %}</td>
           <td>{{ s.created_at|date:"d M Y, H:i" }}</td>
           <td>{% if s.verification_status == 'qr_verified' %}<span class="verify verify-yes">✓ QR VERIFIED</span>{% else %}<span class="verify verify-pending">Pending</span>{% endif %}</td>
           <td><span class="status status-{{ s.status }}">{{ s.get_status_display }}</span></td>

@@ -22,6 +22,44 @@ class SubmissionTransitionError(ValueError):
 # Linear pipeline order (index comparison enforces forward-only flow).
 _LIFECYCLE = ('submitted', 'collected', 'processing', 'recycled')
 
+#: Submission status -> matching PickupRequest status (same lifecycle words).
+_PICKUP_MIRROR = {
+    'collected': 'collected',
+    'processing': 'processing',
+    'recycled': 'recycled',
+}
+
+# Forward-only rank for pickup statuses (cancelled never moves).
+_PICKUP_RANK = {
+    'pending': 0,
+    'assigned': 1,
+    'in_transit': 2,
+    'collected': 3,
+    'processing': 4,
+    'recycled': 5,
+}
+
+
+def sync_pickup_from_submission(submission):
+    """Day 8: mirror a submission's downstream stage onto its pickup.
+
+    The collection task sync (waste.collections) stops at COLLECTED; the
+    recycling pipeline owns what happens after. When a linked submission
+    moves to PROCESSING/RECYCLED, the pickup follows — forward-only, never
+    regressing, cancelled pickups untouched. Returns True if moved.
+    """
+    pickup = getattr(submission, 'pickup_request', None)
+    if pickup is None or pickup.status == 'cancelled':
+        return False
+    target = _PICKUP_MIRROR.get(submission.status)
+    if target is None:
+        return False
+    if _PICKUP_RANK.get(pickup.status, -1) >= _PICKUP_RANK[target]:
+        return False
+    pickup.status = target
+    pickup.save(update_fields=['status', 'updated_at'])
+    return True
+
 
 # ---------- Deposit sessions (QR flow) ----------
 
@@ -113,6 +151,7 @@ def advance_submission(submission, to_status, *, by_user=None,
         submission.status = EwasteSubmission.Status.COLLECTED
         submission.save(update_fields=['status', 'updated_at'])
         ensure_recycling_record(submission)
+        sync_pickup_from_submission(submission)
         return submission
     record, _ = ensure_recycling_record(submission)
     if to_status == 'processing':
@@ -123,6 +162,7 @@ def advance_submission(submission, to_status, *, by_user=None,
         if notes:
             record.notes = (record.notes + '\n' + notes).strip() if record.notes else notes
         record.save(update_fields=['processing_status', 'processed_at', 'notes'])
+        sync_pickup_from_submission(submission)
         return submission
     # recycled — terminal step, captures verified outputs.
     if actual_weight is not None and actual_weight <= 0:
@@ -141,6 +181,7 @@ def advance_submission(submission, to_status, *, by_user=None,
         record.notes = (record.notes + '\n' + notes).strip() if record.notes else notes
     record.save(update_fields=['processing_status', 'recycled_at',
                                'received_weight', 'recycling_partner', 'notes'])
+    sync_pickup_from_submission(submission)
     return submission
 
 

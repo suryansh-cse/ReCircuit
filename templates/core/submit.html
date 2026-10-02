@@ -45,7 +45,7 @@
       {% if form.submission_method.errors %}<div class="field-error">{{ form.submission_method.errors }}</div>{% endif %}
 
       <div id="bin-fields">
-        <label>SmartBin {{ form.bin_id }}</label>
+        <label>Smart bin {{ form.bin_id }}</label>
         {% if form.bin_id.errors %}<div class="field-error">{{ form.bin_id.errors }}</div>{% endif %}
         <p class="muted small">
           <a href="{% url 'bin-map' %}">View campus map</a> ·

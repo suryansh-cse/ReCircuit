@@ -327,7 +327,9 @@ def pickup_request_view(request):
 @login_required
 def pickup_my(request):
     """Owner-only pickup list, split into active vs cancelled."""
-    pickups = PickupRequest.objects.filter(user=request.user).order_by('-created_at')
+    pickups = PickupRequest.objects.filter(
+        user=request.user
+    ).prefetch_related('collection_tasks').order_by('-created_at')
     active = pickups.exclude(status=PickupRequest.Status.CANCELLED)
     cancelled = pickups.filter(status=PickupRequest.Status.CANCELLED)
     return render(request, 'core/pickup_my.html', {

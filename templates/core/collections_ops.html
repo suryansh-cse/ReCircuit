@@ -51,7 +51,7 @@
       <h3>Pickup requests</h3>
       {% if recent_pickups %}
       <table class="table">
-        <tr><th>Request</th><th>User</th><th>Item</th><th>Weight</th><th>Address</th><th>Preferred</th><th>Status</th><th>Collector</th><th>Action</th></tr>
+        <tr><th>Request</th><th>User</th><th>Item</th><th>Weight</th><th>Address</th><th>Preferred date</th><th>Preferred time</th><th>Status</th><th>Collector</th><th>Requested</th><th>Action</th></tr>
         {% for p in recent_pickups %}
         <tr>
           <td>{{ p.display_id }}</td>
@@ -59,9 +59,11 @@
           <td>{{ p.get_e_waste_category_display }}</td>
           <td>{{ p.estimated_weight }} kg</td>
           <td>{{ p.pickup_address }}, {{ p.city }}</td>
-          <td>{{ p.preferred_date|date:"d M Y" }} · {{ p.preferred_time }}</td>
+          <td>{{ p.preferred_date|date:"d M Y" }}</td>
+          <td>{{ p.preferred_time }}</td>
           <td><span class="status status-{{ p.status }}">{{ p.get_status_display }}</span></td>
           <td>{% if p.active_task and p.active_task.assigned_to %}{{ p.active_task.assigned_to.username }}{% else %}<span class="muted">—</span>{% endif %}</td>
+          <td>{{ p.created_at|date:"d M Y, H:i" }}</td>
           <td>{% if p.active_task %}<a href="{% url 'collection-task-detail' p.active_task.pk %}">Task {{ p.active_task.display_id }} →</a>{% elif p.status == 'pending' %}<form method="post" action="{% url 'pickup-ensure-task' p.pk %}">{% csrf_token %}<button class="btn btn-outline" type="submit">Create task</button></form>{% else %}<span class="muted">—</span>{% endif %}</td>
         </tr>
         {% endfor %}
@@ -157,7 +159,7 @@
     <div class="card">
       {% if page.object_list %}
       <table class="table">
-        <tr><th>Task</th><th>Type</th><th>Bin / Pickup</th><th>Priority</th><th>Collector</th><th>Status</th><th>Created</th><th></th></tr>
+        <tr><th>Task</th><th>Type</th><th>Bin / Pickup</th><th>Priority</th><th>Collector</th><th>Status</th><th>Created</th><th>Updated</th><th></th></tr>
         {% for t in page.object_list %}
         <tr>
           <td><a href="{% url 'collection-task-detail' t.pk %}">{{ t.display_id }}</a></td>
@@ -171,6 +173,7 @@
           <td>{% if t.assigned_to %}{{ t.assigned_to.username }}{% else %}<span class="muted">unassigned</span>{% endif %}</td>
           <td><span class="status status-{{ t.status }}">{{ t.get_status_display }}</span></td>
           <td>{{ t.created_at|date:"d M H:i" }}</td>
+          <td>{{ t.updated_at|date:"d M H:i" }}</td>
           <td><a href="{% url 'collection-task-detail' t.pk %}">View →</a></td>
         </tr>
         {% endfor %}
