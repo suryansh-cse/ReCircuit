@@ -30,10 +30,10 @@ Open:
 - Day 3: pickups + smart-bin foundation ✅
 - Day 4: ESP32 telemetry API + bin monitoring ✅
 - Day 5: live monitoring + alerts ✅
-- Day 6: collections + pickup lifecycle
-- Day 7: recycling + analytics + maps
-- Day 8: polish + responsive + errors
-- Day 9: testing + docs + demo
+- Day 6: collections + pickup lifecycle ✅
+- Day 7: recycling + analytics + maps ✅
+- Day 8: polish + responsive + errors ✅
+- Day 9: testing + docs + demo ✅
 
 ## Day 5 — live monitoring & alerts
 - Alert engine (`core/alerts.py`): fill / temperature / offline rules, one active
