@@ -50,6 +50,10 @@ Open:
   `{"device_id":"ECO-BIN-001","fill_level":90,"weight":22.5,"temperature":32}`
 - Tests: `python manage.py test core` (16 tests).
 
+## My Project Team mate:
+Apoorv: https://github.com/apoorvabhardwaj50 
+Worked CHE110 project presentation file 
+
 ## Migrating to PostgreSQL later
 Swap `DATABASES` in `config/settings.py` — no model changes needed.
 
