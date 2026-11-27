@@ -46,12 +46,11 @@ Open:
 - APIs: `GET /api/alerts/` (`?active=&severity=&bin=`), `GET /api/alerts/<id>/`,
   `POST /api/alerts/<id>/resolve/` (staff only), `GET /api/bins/<id>/history/`.
 
-
-My Project Team mate:
-Apoorv https://github.com/apoorvabhardwaj50 
 - Simulate accepts explicit values for scenario testing, always SIMULATED:
   `{"device_id":"ECO-BIN-001","fill_level":90,"weight":22.5,"temperature":32}`
 - Tests: `python manage.py test core` (16 tests).
 
 ## Migrating to PostgreSQL later
 Swap `DATABASES` in `config/settings.py` — no model changes needed.
+
+
